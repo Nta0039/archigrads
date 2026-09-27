@@ -5,11 +5,12 @@
   "type": "module",
   "description": "ArchiGrads — a utility and service hub for architecture students.",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open",
     "build": "vite build",
     "preview": "vite preview --port 4173"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "lucide-react": "^1.48.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

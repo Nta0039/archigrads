@@ -23,6 +23,7 @@ const SERVICES = [
   {
     icon: PenTool,
     title: 'Vector Assets Library',
+    action: 'assets',
     description:
       'A curated collection of high-quality architectural vector materials, CAD blocks, and cutouts for your sections and elevations.',
   },

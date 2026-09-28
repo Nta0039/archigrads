@@ -2,27 +2,114 @@ import { useState } from 'react'
 import { ArrowLeft, Download } from 'lucide-react'
 
 /**
- * Dummy catalogue. The image paths point at files you drop into
- * `public/assets-preview/`. Until those files exist, each card falls back to a
- * neutral placeholder so the grid keeps its shape.
+ * Asset catalogue.
+ *
+ * The browser cannot read the folder at runtime, so this list mirrors the files
+ * currently in `public/assets-preview/`. Assets are grouped by base name: the
+ * image (png/jpg/jpeg/svg/webp) becomes the thumbnail, and a paired source file
+ * (psd/ai/dwg/dxf/zip/obj/skp/3dm) becomes the download. Drop new files in and
+ * add their names here.
  */
-const ASSETS = [
-  { id: 1, title: 'Standing Figure', category: 'People', imageUrl: '/assets-preview/asset-1.png' },
-  { id: 2, title: 'Walking Figure', category: 'People', imageUrl: '/assets-preview/asset-2.png' },
-  { id: 3, title: 'Oak Tree Plan', category: 'Vegetation', imageUrl: '/assets-preview/asset-3.png' },
-  { id: 4, title: 'Shrub Cluster', category: 'Vegetation', imageUrl: '/assets-preview/asset-4.png' },
-  { id: 5, title: 'Compact Car', category: 'Vehicles', imageUrl: '/assets-preview/asset-5.png' },
-  { id: 6, title: 'Delivery Van', category: 'Vehicles', imageUrl: '/assets-preview/asset-6.png' },
-  { id: 7, title: 'Lounge Chair', category: 'Furniture', imageUrl: '/assets-preview/asset-7.png' },
-  { id: 8, title: 'Dining Set', category: 'Furniture', imageUrl: '/assets-preview/asset-8.png' },
+const BASE_PATH = '/assets-preview'
+
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'webp']
+const SOURCE_EXTENSIONS = ['psd', 'ai', 'dwg', 'dxf', 'zip', 'obj', 'skp', '3dm']
+
+const FILES = [
+  'bike.jpg',
+  'bike.psd',
+  'car.dwg',
+  'car.png',
+  'furniture set.ai',
+  'furniture set.png',
+  'Shrub Cluster.jpg',
+  'Shrub Cluster.psd',
+  'Sitting Figure.jpg',
+  'Sitting Figure.psd',
+  'tree section.png',
+  'tree section.psd',
+  'Walking Figure.jpg',
+  'Walking Figure.psd',
 ]
+
+/** Keyword-based categorisation so new files land in a sensible bucket. */
+function categorise(name) {
+  const value = name.toLowerCase()
+  if (/(tree|plant|shrub|grass|flower|leaf|vegetation|bush|hedge|palm)/.test(value)) {
+    return 'Vegetation'
+  }
+  if (/(car|bus|truck|van|bike|bicycle|motor|vehicle|taxi|scooter)/.test(value)) {
+    return 'Vehicles'
+  }
+  if (/(man|woman|person|people|figure|human|sitting|walking|standing|child)/.test(value)) {
+    return 'People'
+  }
+  if (/(chair|table|sofa|furniture|desk|stool|bed|lamp|shelf|bench)/.test(value)) {
+    return 'Furniture'
+  }
+  return 'Other'
+}
+
+/** Groups the flat file list into { title, imageUrl, downloadUrl, category }. */
+function buildAssets(files) {
+  const groups = new Map()
+
+  for (const file of files) {
+    const dot = file.lastIndexOf('.')
+    const base = dot === -1 ? file : file.slice(0, dot)
+    const extension = dot === -1 ? '' : file.slice(dot + 1).toLowerCase()
+
+    if (!groups.has(base)) groups.set(base, { base })
+    const group = groups.get(base)
+
+    if (IMAGE_EXTENSIONS.includes(extension)) group.image = file
+    else if (SOURCE_EXTENSIONS.includes(extension)) group.source = group.source || file
+  }
+
+  return [...groups.values()]
+    .filter((group) => group.image)
+    .map((group, index) => ({
+      id: index + 1,
+      title: group.base,
+      category: categorise(group.base),
+      imageUrl: `${BASE_PATH}/${group.image}`,
+      downloadUrl: `${BASE_PATH}/${group.source || group.image}`,
+    }))
+}
+
+const ASSETS = buildAssets(FILES)
 
 const CATEGORIES = ['All', 'People', 'Vegetation', 'Vehicles', 'Furniture']
 
+const fileNameFrom = (url) => decodeURIComponent(url.split('/').pop())
+
+function triggerAnchorDownload(href, filename) {
+  const link = document.createElement('a')
+  link.href = href
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 /**
- * Vector Assets Library. A filterable, downloadable catalogue of architectural
- * cutouts. Keeps the monochrome, architectural aesthetic of the rest of the app.
+ * Forces a download even when a browser would rather open the file. Fetches the
+ * file as a blob and saves it; falls back to a plain anchor download.
  */
+async function forceDownload(url, filename) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Request failed')
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    triggerAnchorDownload(objectUrl, filename)
+    // Give the download a moment before releasing the blob URL.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 4000)
+  } catch {
+    triggerAnchorDownload(url, filename)
+  }
+}
+
 export default function AssetsLibraryPage({ onBack }) {
   const [activeCategory, setActiveCategory] = useState('All')
 
@@ -52,7 +139,7 @@ export default function AssetsLibraryPage({ onBack }) {
           </h1>
           <p className="mt-5 leading-relaxed text-neutral-500">
             A curated collection of architectural vector assets for your sections and elevations.
-            Browse by category and download what you need.
+            Browse by category and download the source files.
           </p>
         </header>
 
@@ -94,6 +181,9 @@ export default function AssetsLibraryPage({ onBack }) {
 
 function AssetCard({ asset }) {
   const [failed, setFailed] = useState(false)
+  const imageUrl = encodeURI(asset.imageUrl)
+  const downloadUrl = encodeURI(asset.downloadUrl)
+  const filename = fileNameFrom(asset.downloadUrl)
 
   return (
     <figure className="group overflow-hidden border border-neutral-200 bg-white">
@@ -104,7 +194,7 @@ function AssetCard({ asset }) {
           </div>
         ) : (
           <img
-            src={asset.imageUrl}
+            src={imageUrl}
             alt={asset.title}
             loading="lazy"
             draggable={false}
@@ -114,9 +204,13 @@ function AssetCard({ asset }) {
         )}
 
         <a
-          href={asset.imageUrl}
-          download
-          onClick={(event) => event.stopPropagation()}
+          href={downloadUrl}
+          download={filename}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            forceDownload(downloadUrl, filename)
+          }}
           className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
         >
           <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />

@@ -4,33 +4,44 @@ import { ArrowLeft, Download } from 'lucide-react'
 /**
  * Asset catalogue.
  *
- * The browser cannot read the folder at runtime, so this list mirrors the files
- * currently in `public/assets-preview/`. Assets are grouped by base name: the
- * image (png/jpg/jpeg/svg/webp) becomes the thumbnail, and a paired source file
- * (psd/ai/dwg/dxf/zip/obj/skp/3dm) becomes the download. Drop new files in and
- * add their names here.
+ * Thumbnails live in `public/assets-preview/`; the heavy source files are hosted
+ * in the Supabase `assets` bucket so the repo stays small. Add a new thumbnail
+ * to FILES and, if it has a downloadable source, an entry to REMOTE_SOURCES.
  */
 const BASE_PATH = '/assets-preview'
+const STORAGE = 'https://eacxrglkllttghdpbrff.supabase.co/storage/v1/object/public/assets'
 
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'webp']
-const SOURCE_EXTENSIONS = ['psd', 'ai', 'dwg', 'dxf', 'zip', 'obj', 'skp', '3dm']
 
+// Thumbnails present in public/assets-preview.
 const FILES = [
   'bike.jpg',
-  'bike.psd',
-  'car.dwg',
   'car.png',
-  'furniture set.ai',
   'furniture set.png',
   'Shrub Cluster.jpg',
-  'Shrub Cluster.psd',
   'Sitting Figure.jpg',
-  'Sitting Figure.psd',
   'tree section.png',
-  'tree section.psd',
   'Walking Figure.jpg',
-  'Walking Figure.psd',
 ]
+
+// Hosted source files, keyed by thumbnail base name. The oversized PSD is split
+// into parts and recombined in the browser on download.
+const REMOTE_SOURCES = {
+  bike: { filename: 'bike.psd', urls: [`${STORAGE}/bike.psd`] },
+  car: { filename: 'car.dwg', urls: [`${STORAGE}/car.dwg`] },
+  'furniture set': { filename: 'furniture set.ai', urls: [`${STORAGE}/furniture-set.ai`] },
+  'Shrub Cluster': {
+    filename: 'Shrub Cluster.psd',
+    urls: [
+      `${STORAGE}/shrub-cluster.psd.part1`,
+      `${STORAGE}/shrub-cluster.psd.part2`,
+      `${STORAGE}/shrub-cluster.psd.part3`,
+    ],
+  },
+  'Sitting Figure': { filename: 'Sitting Figure.psd', urls: [`${STORAGE}/sitting-figure.psd`] },
+  'tree section': { filename: 'tree section.psd', urls: [`${STORAGE}/tree-section.psd`] },
+  'Walking Figure': { filename: 'Walking Figure.psd', urls: [`${STORAGE}/walking-figure.psd`] },
+}
 
 /** Keyword-based categorisation so new files land in a sensible bucket. */
 function categorise(name) {
@@ -50,7 +61,7 @@ function categorise(name) {
   return 'Other'
 }
 
-/** Groups the flat file list into { title, imageUrl, downloadUrl, category }. */
+/** Builds the catalogue from the thumbnail list, pairing each with its source. */
 function buildAssets(files) {
   const groups = new Map()
 
@@ -61,27 +72,27 @@ function buildAssets(files) {
 
     if (!groups.has(base)) groups.set(base, { base })
     const group = groups.get(base)
-
     if (IMAGE_EXTENSIONS.includes(extension)) group.image = file
-    else if (SOURCE_EXTENSIONS.includes(extension)) group.source = group.source || file
   }
 
   return [...groups.values()]
     .filter((group) => group.image)
-    .map((group, index) => ({
-      id: index + 1,
-      title: group.base,
-      category: categorise(group.base),
-      imageUrl: `${BASE_PATH}/${group.image}`,
-      downloadUrl: `${BASE_PATH}/${group.source || group.image}`,
-    }))
+    .map((group, index) => {
+      const remote = REMOTE_SOURCES[group.base]
+      return {
+        id: index + 1,
+        title: group.base,
+        category: categorise(group.base),
+        imageUrl: encodeURI(`${BASE_PATH}/${group.image}`),
+        downloadUrls: remote ? remote.urls : [encodeURI(`${BASE_PATH}/${group.image}`)],
+        fileName: remote ? remote.filename : group.image,
+      }
+    })
 }
 
 const ASSETS = buildAssets(FILES)
 
 const CATEGORIES = ['All', 'People', 'Vegetation', 'Vehicles', 'Furniture']
-
-const fileNameFrom = (url) => decodeURIComponent(url.split('/').pop())
 
 function triggerAnchorDownload(href, filename) {
   const link = document.createElement('a')
@@ -93,20 +104,25 @@ function triggerAnchorDownload(href, filename) {
 }
 
 /**
- * Forces a download even when a browser would rather open the file. Fetches the
- * file as a blob and saves it; falls back to a plain anchor download.
+ * Forces a download even when a browser would rather open the file. Fetches each
+ * part as a blob (recombining split sources), saves it, and falls back to a plain
+ * anchor download if the fetch fails.
  */
-async function forceDownload(url, filename) {
+async function forceDownload(urls, filename) {
   try {
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Request failed')
-    const blob = await response.blob()
+    const blobs = []
+    for (const url of urls) {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Request failed')
+      blobs.push(await response.blob())
+    }
+
+    const blob = blobs.length === 1 ? blobs[0] : new Blob(blobs)
     const objectUrl = URL.createObjectURL(blob)
     triggerAnchorDownload(objectUrl, filename)
-    // Give the download a moment before releasing the blob URL.
     setTimeout(() => URL.revokeObjectURL(objectUrl), 4000)
   } catch {
-    triggerAnchorDownload(url, filename)
+    triggerAnchorDownload(urls[0], filename)
   }
 }
 
@@ -181,9 +197,6 @@ export default function AssetsLibraryPage({ onBack }) {
 
 function AssetCard({ asset }) {
   const [failed, setFailed] = useState(false)
-  const imageUrl = encodeURI(asset.imageUrl)
-  const downloadUrl = encodeURI(asset.downloadUrl)
-  const filename = fileNameFrom(asset.downloadUrl)
 
   return (
     <figure className="group overflow-hidden border border-neutral-200 bg-white">
@@ -194,7 +207,7 @@ function AssetCard({ asset }) {
           </div>
         ) : (
           <img
-            src={imageUrl}
+            src={asset.imageUrl}
             alt={asset.title}
             loading="lazy"
             draggable={false}
@@ -204,12 +217,12 @@ function AssetCard({ asset }) {
         )}
 
         <a
-          href={downloadUrl}
-          download={filename}
+          href={asset.downloadUrls[0]}
+          download={asset.fileName}
           onClick={(event) => {
             event.preventDefault()
             event.stopPropagation()
-            forceDownload(downloadUrl, filename)
+            forceDownload(asset.downloadUrls, asset.fileName)
           }}
           className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
         >

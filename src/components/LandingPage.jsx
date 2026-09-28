@@ -9,6 +9,7 @@ const SERVICES = [
   {
     icon: Monitor,
     title: 'Software Assistance',
+    action: 'software',
     description:
       'Remote assistance to help you install, configure, and troubleshoot heavy architectural software flawlessly.',
   },
@@ -30,7 +31,7 @@ const SERVICES = [
  * ArchiGrads marketing landing page. Monochrome, editorial and architectural:
  * hairline rules, generous whitespace, and large type. No 3D, no canvas.
  */
-export default function LandingPage() {
+export default function LandingPage({ onNavigate }) {
   return (
     <div className="min-h-screen bg-white text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white">
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur">
@@ -104,7 +105,12 @@ export default function LandingPage() {
 
             <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden border border-neutral-200 bg-neutral-200 md:grid-cols-3">
               {SERVICES.map((service) => (
-                <ServiceCard key={service.title} icon={service.icon} title={service.title}>
+                <ServiceCard
+                  key={service.title}
+                  icon={service.icon}
+                  title={service.title}
+                  onClick={service.action ? () => onNavigate?.(service.action) : undefined}
+                >
                   {service.description}
                 </ServiceCard>
               ))}
@@ -142,14 +148,37 @@ export default function LandingPage() {
   )
 }
 
-function ServiceCard({ icon: Icon, title, children }) {
-  return (
-    <article className="group bg-white p-8 transition-colors hover:bg-neutral-50 sm:p-10">
+function ServiceCard({ icon: Icon, title, children, onClick }) {
+  const content = (
+    <>
       <span className="flex h-11 w-11 items-center justify-center border border-neutral-300 text-neutral-900 transition-colors group-hover:border-neutral-900">
         <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden />
       </span>
       <h3 className="mt-7 text-lg font-semibold tracking-tight">{title}</h3>
       <p className="mt-3 text-sm leading-relaxed text-neutral-500">{children}</p>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="group relative bg-white p-8 text-left transition-colors hover:bg-neutral-50 sm:p-10"
+      >
+        <ArrowUpRight
+          className="absolute right-8 top-8 h-4 w-4 text-neutral-300 transition-colors group-hover:text-neutral-900 sm:right-10 sm:top-10"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <article className="group bg-white p-8 transition-colors hover:bg-neutral-50 sm:p-10">
+      {content}
     </article>
   )
 }

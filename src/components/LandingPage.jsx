@@ -16,6 +16,7 @@ const SERVICES = [
   {
     icon: Box,
     title: 'White Model Rendering',
+    action: 'render',
     description:
       'Cloud-based 3D white model rendering. Send us your models, and we deliver crisp, professional base renders for your diagrams.',
   },

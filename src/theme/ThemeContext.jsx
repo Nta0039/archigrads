@@ -36,13 +36,16 @@ function applyThemeClass(theme) {
  * transition (see index.css), instead of a mix of fading and snapping elements.
  */
 function withThemeFade(update) {
-  if (reducedMotionQuery.matches) {
+  // Nothing to animate in a background tab (e.g. the OS switches theme at sunset).
+  if (reducedMotionQuery.matches || document.visibilityState === 'hidden') {
     update()
     return
   }
 
   if (document.startViewTransition) {
-    document.startViewTransition(update)
+    // The browser may still skip the animation (the theme is applied anyway) and
+    // rejects `ready` when it does; that is expected, so don't report it.
+    document.startViewTransition(update).ready.catch(() => {})
     return
   }
 
@@ -76,15 +79,17 @@ export function ThemeProvider({ children }) {
 
   const value = useMemo(() => {
     const toggleTheme = () => {
-      const next = theme === 'dark' ? 'light' : 'dark'
-      try {
-        localStorage.setItem(STORAGE_KEY, next)
-      } catch {
-        // Storage can be blocked (private mode); the toggle still works for this visit.
-      }
-      // flushSync commits the new state (and its layout effect) inside the
-      // transition callback, so the "after" snapshot shows the new theme.
+      // The fade runs the update a frame later, so decide the next theme inside
+      // it from the live <html> class; rapid clicks then always alternate.
       withThemeFade(() => {
+        const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark'
+        try {
+          localStorage.setItem(STORAGE_KEY, next)
+        } catch {
+          // Storage can be blocked (private mode); the toggle still works for this visit.
+        }
+        // flushSync commits the new state (and its layout effect) inside the
+        // transition callback, so the "after" snapshot shows the new theme.
         flushSync(() => setStoredTheme(next))
       })
     }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import {
   Armchair,
   Box,
@@ -386,7 +386,11 @@ function FormatBadge({ format }) {
   )
 }
 
-function AssetCard({ asset }) {
+/**
+ * Memoised: asset objects are module constants, so a card only re-renders when
+ * it is shown for a different asset, not on every search keystroke.
+ */
+const AssetCard = memo(function AssetCard({ asset }) {
   const [failed, setFailed] = useState(false)
   const showImage = asset.imageUrl && !failed
 
@@ -443,4 +447,4 @@ function AssetCard({ asset }) {
       </figcaption>
     </figure>
   )
-}
+})

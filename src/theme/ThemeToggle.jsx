@@ -13,7 +13,7 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Light mode' : 'Dark mode'}
-      className="flex h-9 w-9 items-center justify-center border border-neutral-300 text-neutral-500 transition-colors hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100"
+      className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 text-neutral-500 transition-colors hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100"
     >
       <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
     </button>

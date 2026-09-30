@@ -206,8 +206,8 @@ export default function AssetsLibraryPage() {
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/85">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
           <a href="/" className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center border border-neutral-900 dark:border-neutral-100">
-              <span className="h-2 w-2 bg-neutral-900 dark:bg-neutral-100" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-neutral-900 dark:border-neutral-100">
+              <span className="h-2 w-2 rounded-[2px] bg-neutral-900 dark:bg-neutral-100" />
             </span>
             <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
           </a>
@@ -231,7 +231,7 @@ export default function AssetsLibraryPage() {
           <form
             role="search"
             onSubmit={(event) => event.preventDefault()}
-            className="mx-auto mt-10 flex max-w-3xl items-stretch border border-neutral-300 bg-white transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus-within:border-neutral-100"
+            className="mx-auto mt-10 flex max-w-3xl items-stretch overflow-hidden rounded-lg border border-neutral-300 bg-white transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus-within:border-neutral-100"
           >
             <label htmlFor="asset-search" className="flex items-center pl-5 text-neutral-400 dark:text-neutral-500">
               <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -321,7 +321,7 @@ export default function AssetsLibraryPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-4 border border-neutral-300 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+              className="mt-4 rounded-md border border-neutral-300 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
             >
               Clear filters
             </button>
@@ -356,7 +356,7 @@ function Pill({ active, onClick, icon: Icon, children }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group/pill flex items-center gap-2 border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors ${
+      className={`group/pill flex items-center gap-2 rounded-md border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors ${
         active
           ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
           : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
@@ -380,7 +380,7 @@ function Pill({ active, onClick, icon: Icon, children }) {
 
 function FormatBadge({ format }) {
   return (
-    <span className="border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+    <span className="rounded border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
       {format.replace('.', '')}
     </span>
   )
@@ -391,7 +391,7 @@ function AssetCard({ asset }) {
   const showImage = asset.imageUrl && !failed
 
   return (
-    <figure className="group overflow-hidden border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
+    <figure className="group overflow-hidden rounded-lg border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
         {showImage ? (
           <img
@@ -422,7 +422,7 @@ function AssetCard({ asset }) {
             Download
           </a>
         ) : (
-          <span className="absolute left-3 top-3 bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
+          <span className="absolute left-3 top-3 rounded bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
             Coming soon
           </span>
         )}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, Download } from 'lucide-react'
+import ThemeToggle from '../theme/ThemeToggle'
 
 /**
  * Asset catalogue.
@@ -133,34 +134,35 @@ export default function AssetsLibraryPage({ onBack }) {
     activeCategory === 'All' ? ASSETS : ASSETS.filter((asset) => asset.category === activeCategory)
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased">
-      <div className="mx-auto max-w-6xl px-6 py-8 lg:px-8">
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8 lg:px-8">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
+          className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           Back to Home
         </button>
+        <ThemeToggle />
       </div>
 
       <main className="mx-auto max-w-6xl px-6 pb-24 lg:px-8">
-        <header className="max-w-2xl border-t border-neutral-200 pt-12">
-          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400">
+        <header className="max-w-2xl border-t border-neutral-200 dark:border-neutral-800 pt-12">
+          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400 dark:text-neutral-500">
             Vector Assets Library
           </p>
           <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
             Cutouts, blocks and materials.
           </h1>
-          <p className="mt-5 leading-relaxed text-neutral-500">
+          <p className="mt-5 leading-relaxed text-neutral-500 dark:text-neutral-400">
             A curated collection of architectural vector assets for your sections and elevations.
             Browse by category and download the source files.
           </p>
         </header>
 
         {/* Category filter */}
-        <div className="mt-12 flex flex-wrap items-center gap-2 border-y border-neutral-200 py-4">
+        <div className="mt-12 flex flex-wrap items-center gap-2 border-y border-neutral-200 dark:border-neutral-800 py-4">
           {CATEGORIES.map((category) => {
             const isActive = category === activeCategory
             return (
@@ -170,8 +172,8 @@ export default function AssetsLibraryPage({ onBack }) {
                 onClick={() => setActiveCategory(category)}
                 className={`px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] transition-colors ${
                   isActive
-                    ? 'bg-neutral-900 text-white'
-                    : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                    ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
+                    : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                 }`}
               >
                 {category}
@@ -188,7 +190,7 @@ export default function AssetsLibraryPage({ onBack }) {
         </div>
 
         {visibleAssets.length === 0 && (
-          <p className="mt-16 text-center text-sm text-neutral-400">No assets in this category yet.</p>
+          <p className="mt-16 text-center text-sm text-neutral-400 dark:text-neutral-500">No assets in this category yet.</p>
         )}
       </main>
     </div>
@@ -199,10 +201,10 @@ function AssetCard({ asset }) {
   const [failed, setFailed] = useState(false)
 
   return (
-    <figure className="group overflow-hidden border border-neutral-200 bg-white">
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200">
+    <figure className="group overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200 dark:bg-neutral-800">
         {failed ? (
-          <div className="flex h-full w-full items-center justify-center bg-gray-200 text-[10px] font-medium uppercase tracking-[0.2em] text-gray-500">
+          <div className="flex h-full w-full items-center justify-center bg-gray-200 dark:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">
             Asset Preview
           </div>
         ) : (
@@ -231,9 +233,9 @@ function AssetCard({ asset }) {
         </a>
       </div>
 
-      <figcaption className="flex items-center justify-between gap-2 border-t border-neutral-200 px-4 py-3">
-        <span className="truncate text-sm text-neutral-800">{asset.title}</span>
-        <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-neutral-400">
+      <figcaption className="flex items-center justify-between gap-2 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3">
+        <span className="truncate text-sm text-neutral-800 dark:text-neutral-200">{asset.title}</span>
+        <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
           {asset.category}
         </span>
       </figcaption>

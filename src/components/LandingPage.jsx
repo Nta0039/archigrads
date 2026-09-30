@@ -1,4 +1,5 @@
 import { ArrowUpRight, Box, Monitor, PenTool } from 'lucide-react'
+import ThemeToggle from '../theme/ThemeToggle'
 
 const NAV_LINKS = [
   { label: 'Services', href: '#services' },
@@ -35,12 +36,12 @@ const SERVICES = [
  */
 export default function LandingPage({ onNavigate }) {
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white">
-      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur">
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased selection:bg-neutral-900 dark:selection:bg-neutral-100 selection:text-white dark:selection:text-neutral-900">
+      <header className="sticky top-0 z-50 border-b border-neutral-200 dark:border-neutral-800 bg-white/85 dark:bg-neutral-950/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 lg:px-8">
           <a href="#top" className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center border border-neutral-900">
-              <span className="h-2 w-2 bg-neutral-900" />
+            <span className="flex h-7 w-7 items-center justify-center border border-neutral-900 dark:border-neutral-100">
+              <span className="h-2 w-2 bg-neutral-900 dark:bg-neutral-100" />
             </span>
             <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
           </a>
@@ -50,11 +51,12 @@ export default function LandingPage({ onNavigate }) {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm text-neutral-500 transition-colors hover:text-neutral-900"
+                className="text-sm text-neutral-500 dark:text-neutral-400 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
               >
                 {link.label}
               </a>
             ))}
+            <ThemeToggle />
           </nav>
         </div>
       </header>
@@ -62,17 +64,17 @@ export default function LandingPage({ onNavigate }) {
       <main id="top">
         {/* Hero */}
         <section className="mx-auto max-w-6xl px-6 pb-20 pt-24 sm:pt-32 lg:px-8 lg:pb-28 lg:pt-40">
-          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400">
+          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400 dark:text-neutral-500">
             For architecture students
           </p>
 
           <h1 className="mt-8 max-w-4xl text-5xl font-bold leading-[0.95] tracking-tight sm:text-7xl lg:text-8xl">
             Focus on Design.
             <br />
-            <span className="text-neutral-400">We Handle the Rest.</span>
+            <span className="text-neutral-400 dark:text-neutral-500">We Handle the Rest.</span>
           </h1>
 
-          <p className="mt-8 max-w-2xl text-lg leading-relaxed text-neutral-500 sm:text-xl">
+          <p className="mt-8 max-w-2xl text-lg leading-relaxed text-neutral-500 dark:text-neutral-400 sm:text-xl">
             The ultimate utility hub for architecture students—software support, fast rendering, and
             premium assets.
           </p>
@@ -80,13 +82,13 @@ export default function LandingPage({ onNavigate }) {
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <a
               href="#services"
-              className="inline-flex items-center gap-2 bg-neutral-900 px-7 py-3.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700"
+              className="inline-flex items-center gap-2 bg-neutral-900 dark:bg-neutral-100 px-7 py-3.5 text-sm font-medium text-white dark:text-neutral-900 transition-colors hover:bg-neutral-700 dark:hover:bg-neutral-300"
             >
               Explore Services
             </a>
             <a
               href="#contact"
-              className="inline-flex items-center gap-2 border border-neutral-300 px-7 py-3.5 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-900"
+              className="inline-flex items-center gap-2 border border-neutral-300 dark:border-neutral-700 px-7 py-3.5 text-sm font-medium text-neutral-900 dark:text-neutral-100 transition-colors hover:border-neutral-900 dark:hover:border-neutral-100"
             >
               Talk to us
             </a>
@@ -94,18 +96,18 @@ export default function LandingPage({ onNavigate }) {
         </section>
 
         {/* Core features */}
-        <section id="services" className="border-t border-neutral-200">
+        <section id="services" className="border-t border-neutral-200 dark:border-neutral-800">
           <div className="mx-auto max-w-6xl px-6 py-20 lg:px-8 lg:py-28">
             <div className="flex flex-col justify-between gap-8 sm:flex-row sm:items-end">
               <h2 className="max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
                 Everything you need, so nothing slows you down.
               </h2>
-              <p className="max-w-sm text-sm leading-relaxed text-neutral-500">
+              <p className="max-w-sm text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
                 Three focused services built around the way architecture students actually work.
               </p>
             </div>
 
-            <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden border border-neutral-200 bg-neutral-200 md:grid-cols-3">
+            <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-200 dark:bg-neutral-800 md:grid-cols-3">
               {SERVICES.map((service) => (
                 <ServiceCard
                   key={service.title}
@@ -121,17 +123,17 @@ export default function LandingPage({ onNavigate }) {
         </section>
 
         {/* Closing call to action */}
-        <section id="contact" className="border-t border-neutral-300 bg-neutral-200">
+        <section id="contact" className="border-t border-neutral-300 dark:border-neutral-700 bg-neutral-200 dark:bg-neutral-800">
           <div className="mx-auto max-w-6xl px-6 py-20 lg:px-8 lg:py-24">
             <h2 className="max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
               Ready to spend more time designing?
             </h2>
-            <p className="mt-4 max-w-xl leading-relaxed text-neutral-500">
+            <p className="mt-4 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
               Tell us what you are working on and we will point you to the fastest path forward.
             </p>
             <a
               href="mailto:hello@archigrads.com"
-              className="mt-8 inline-flex items-center gap-2 bg-neutral-900 px-7 py-3.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700"
+              className="mt-8 inline-flex items-center gap-2 bg-neutral-900 dark:bg-neutral-100 px-7 py-3.5 text-sm font-medium text-white dark:text-neutral-900 transition-colors hover:bg-neutral-700 dark:hover:bg-neutral-300"
             >
               hello@archigrads.com
               <ArrowUpRight className="h-4 w-4" strokeWidth={1.75} />
@@ -140,8 +142,8 @@ export default function LandingPage({ onNavigate }) {
         </section>
       </main>
 
-      <footer className="border-t border-neutral-200">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-3 px-6 py-10 text-sm text-neutral-400 sm:flex-row sm:items-center lg:px-8">
+      <footer className="border-t border-neutral-200 dark:border-neutral-800">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-3 px-6 py-10 text-sm text-neutral-400 dark:text-neutral-500 sm:flex-row sm:items-center lg:px-8">
           <p>© {new Date().getFullYear()} ArchiGrads. All rights reserved.</p>
           <p className="text-xs uppercase tracking-[0.2em]">Built for architecture students</p>
         </div>
@@ -153,11 +155,11 @@ export default function LandingPage({ onNavigate }) {
 function ServiceCard({ icon: Icon, title, children, onClick }) {
   const content = (
     <>
-      <span className="flex h-11 w-11 items-center justify-center border border-neutral-300 text-neutral-900 transition-colors group-hover:border-neutral-900">
+      <span className="flex h-11 w-11 items-center justify-center border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 transition-colors group-hover:border-neutral-900 dark:group-hover:border-neutral-100">
         <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden />
       </span>
       <h3 className="mt-7 text-lg font-semibold tracking-tight">{title}</h3>
-      <p className="mt-3 text-sm leading-relaxed text-neutral-500">{children}</p>
+      <p className="mt-3 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">{children}</p>
     </>
   )
 
@@ -166,10 +168,10 @@ function ServiceCard({ icon: Icon, title, children, onClick }) {
       <button
         type="button"
         onClick={onClick}
-        className="group relative bg-white p-8 text-left transition-colors hover:bg-neutral-50 sm:p-10"
+        className="group relative bg-white dark:bg-neutral-900 p-8 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800 sm:p-10"
       >
         <ArrowUpRight
-          className="absolute right-8 top-8 h-4 w-4 text-neutral-300 transition-colors group-hover:text-neutral-900 sm:right-10 sm:top-10"
+          className="absolute right-8 top-8 h-4 w-4 text-neutral-300 dark:text-neutral-600 transition-colors group-hover:text-neutral-900 dark:group-hover:text-neutral-100 sm:right-10 sm:top-10"
           strokeWidth={1.75}
           aria-hidden
         />
@@ -179,7 +181,7 @@ function ServiceCard({ icon: Icon, title, children, onClick }) {
   }
 
   return (
-    <article className="group bg-white p-8 transition-colors hover:bg-neutral-50 sm:p-10">
+    <article className="group bg-white dark:bg-neutral-900 p-8 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800 sm:p-10">
       {content}
     </article>
   )

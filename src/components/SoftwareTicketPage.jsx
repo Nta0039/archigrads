@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import ThemeToggle from '../theme/ThemeToggle'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 const SOFTWARE_OPTIONS = [
@@ -15,9 +16,9 @@ const SOFTWARE_OPTIONS = [
 
 const OS_OPTIONS = ['Windows 11', 'Windows 10', 'macOS (Apple Silicon)', 'macOS (Intel)']
 
-const LABEL = 'mb-2 block text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500'
+const LABEL = 'mb-2 block text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400'
 const FIELD =
-  'w-full border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900'
+  'w-full border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 outline-none transition placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:border-neutral-900 dark:focus:border-neutral-100'
 
 /**
  * Software Assistance intake form. Submits a row to the Supabase
@@ -69,27 +70,28 @@ export default function SoftwareTicketPage({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased">
-      <div className="mx-auto max-w-6xl px-6 py-8 lg:px-8">
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8 lg:px-8">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
+          className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           Back to Home
         </button>
+        <ThemeToggle />
       </div>
 
       <main className="mx-auto max-w-6xl px-6 pb-24 lg:px-8">
-        <header className="max-w-2xl border-t border-neutral-200 pt-12">
-          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400">
+        <header className="max-w-2xl border-t border-neutral-200 dark:border-neutral-800 pt-12">
+          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400 dark:text-neutral-500">
             Software Assistance
           </p>
           <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
             Submit a support request
           </h1>
-          <p className="mt-5 leading-relaxed text-neutral-500">
+          <p className="mt-5 leading-relaxed text-neutral-500 dark:text-neutral-400">
             Tell us what you are working with and what is getting in the way. We will get back to you
             with the fastest fix, remote assistance, or a setup walkthrough.
           </p>
@@ -177,8 +179,8 @@ export default function SoftwareTicketPage({ onBack }) {
               role="status"
               className={`border px-4 py-3 text-sm ${
                 status.type === 'success'
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                  : 'border-red-300 bg-red-50 text-red-700'
+                  ? 'border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                  : 'border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300'
               }`}
             >
               {status.message}
@@ -188,7 +190,7 @@ export default function SoftwareTicketPage({ onBack }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center bg-neutral-900 px-8 py-4 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center bg-neutral-900 dark:bg-neutral-100 px-8 py-4 text-sm font-medium text-white dark:text-neutral-900 transition-colors hover:bg-neutral-700 dark:hover:bg-neutral-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? 'Submitting…' : 'Submit Request'}
           </button>

@@ -1,5 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Download, Search, X } from 'lucide-react'
+import {
+  Armchair,
+  Box,
+  BrickWall,
+  Car,
+  Download,
+  DraftingCompass,
+  Layers,
+  LayoutGrid,
+  PersonStanding,
+  Search,
+  TreeDeciduous,
+  X,
+} from 'lucide-react'
 import ThemeToggle from '../theme/ThemeToggle'
 
 /**
@@ -17,6 +30,7 @@ const ASSETS = [
   {
     title: 'Walking Figure',
     category: 'People',
+    kind: '2D',
     image: 'Walking Figure.jpg',
     formats: ['.psd'],
     source: { filename: 'Walking Figure.psd', urls: [`${STORAGE}/walking-figure.psd`] },
@@ -24,6 +38,7 @@ const ASSETS = [
   {
     title: 'Sitting Figure',
     category: 'People',
+    kind: '2D',
     image: 'Sitting Figure.jpg',
     formats: ['.psd'],
     source: { filename: 'Sitting Figure.psd', urls: [`${STORAGE}/sitting-figure.psd`] },
@@ -31,6 +46,7 @@ const ASSETS = [
   {
     title: 'Shrub Cluster',
     category: 'Vegetation',
+    kind: '2D',
     image: 'Shrub Cluster.jpg',
     formats: ['.psd'],
     // The oversized PSD is split into parts and recombined in the browser.
@@ -46,6 +62,7 @@ const ASSETS = [
   {
     title: 'Tree Section',
     category: 'Vegetation',
+    kind: '2D',
     image: 'tree section.png',
     formats: ['.psd'],
     source: { filename: 'tree section.psd', urls: [`${STORAGE}/tree-section.psd`] },
@@ -53,6 +70,7 @@ const ASSETS = [
   {
     title: 'Bike',
     category: 'Vehicles',
+    kind: '2D',
     image: 'bike.jpg',
     formats: ['.psd'],
     source: { filename: 'bike.psd', urls: [`${STORAGE}/bike.psd`] },
@@ -60,6 +78,7 @@ const ASSETS = [
   {
     title: 'Car',
     category: 'Vehicles',
+    kind: '2D',
     image: 'car.png',
     formats: ['.dwg'],
     source: { filename: 'car.dwg', urls: [`${STORAGE}/car.dwg`] },
@@ -67,28 +86,52 @@ const ASSETS = [
   {
     title: 'Furniture Set',
     category: 'Furniture',
+    kind: '2D',
     image: 'furniture set.png',
     formats: ['.ai'],
     source: { filename: 'furniture set.ai', urls: [`${STORAGE}/furniture-set.ai`] },
   },
 
   // Mock entries — replace with real files as they are imported.
-  { title: 'Crowd Silhouettes', category: 'People', formats: ['.ai', '.png'] },
-  { title: 'Deciduous Tree Elevations', category: 'Vegetation', formats: ['.dwg', '.png'] },
-  { title: 'Parametric Planter', category: 'Vegetation', formats: ['.3dm'] },
-  { title: 'Lounge Chair Pack', category: 'Furniture', formats: ['.skp', '.dwg'] },
-  { title: 'Office Desk Blocks', category: 'Furniture', formats: ['.dwg', '.3dm'] },
-  { title: 'City Bus Elevation', category: 'Vehicles', formats: ['.ai', '.png'] },
+  { title: 'Crowd Silhouettes', category: 'People', kind: '2D', formats: ['.ai', '.png'] },
+  { title: 'Scale Figures 3D', category: 'People', kind: '3D', formats: ['.skp', '.3dm'] },
+  { title: 'Deciduous Tree Elevations', category: 'Vegetation', kind: '2D', formats: ['.dwg', '.png'] },
+  { title: 'Street Tree Model', category: 'Vegetation', kind: '3D', formats: ['.skp'] },
+  { title: 'Parametric Planter', category: 'Vegetation', kind: '3D', formats: ['.3dm'] },
+  { title: 'City Bus Elevation', category: 'Vehicles', kind: '2D', formats: ['.ai', '.png'] },
+  { title: 'Hatchback Car Model', category: 'Vehicles', kind: '3D', formats: ['.skp', '.3dm'] },
+  { title: 'Lounge Chair Pack', category: 'Furniture', kind: '3D', formats: ['.skp', '.dwg'] },
+  { title: 'Office Desk Blocks', category: 'Furniture', kind: '3D', formats: ['.dwg', '.3dm'] },
+  // Textures are material maps, so they sit outside the 2D / 3D split.
   { title: 'Board-Formed Concrete', category: 'Textures', formats: ['.png', '.psd'] },
   { title: 'Oak Timber Cladding', category: 'Textures', formats: ['.png'] },
-  { title: 'Brick Stretcher Bond', category: 'Textures', formats: ['.png', '.skp'] },
+  { title: 'Brick Stretcher Bond', category: 'Textures', formats: ['.png'] },
+  { title: 'Curtain Wall Mullion', category: 'Details', kind: '2D', formats: ['.dwg'] },
+  { title: 'Green Roof Build-up', category: 'Details', kind: '2D', formats: ['.dwg', '.ai'] },
+  { title: 'Timber Stair Joint', category: 'Details', kind: '3D', formats: ['.3dm', '.skp'] },
 ].map((asset, index) => ({
   ...asset,
   id: index + 1,
   imageUrl: asset.image ? encodeURI(`${PREVIEW}/${asset.image}`) : null,
 }))
 
-const CATEGORIES = ['All', 'People', 'Vegetation', 'Vehicles', 'Furniture', 'Textures']
+/**
+ * Category filters. "2D Assets" and "3D Models" are high-level classes that cut
+ * across the subject categories, so they match on `kind` instead of `category`.
+ */
+const CATEGORIES = [
+  { label: 'All', icon: LayoutGrid, matches: () => true },
+  { label: '2D Assets', icon: Layers, matches: (asset) => asset.kind === '2D' },
+  { label: '3D Models', icon: Box, matches: (asset) => asset.kind === '3D' },
+  ...[
+    ['People', PersonStanding],
+    ['Vegetation', TreeDeciduous],
+    ['Vehicles', Car],
+    ['Furniture', Armchair],
+    ['Textures', BrickWall],
+    ['Details', DraftingCompass],
+  ].map(([label, icon]) => ({ label, icon, matches: (asset) => asset.category === label })),
+]
 const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.skp', '.3dm']
 
 function triggerAnchorDownload(href, filename) {
@@ -125,7 +168,7 @@ async function forceDownload(urls, filename) {
 
 function matchesQuery(asset, query) {
   if (!query) return true
-  const haystack = [asset.title, asset.category, ...asset.formats].join(' ').toLowerCase()
+  const haystack = [asset.title, asset.category, asset.kind ?? '', ...asset.formats].join(' ').toLowerCase()
   return query
     .toLowerCase()
     .split(/\s+/)
@@ -138,15 +181,17 @@ export default function AssetsLibraryPage() {
   const [category, setCategory] = useState('All')
   const [format, setFormat] = useState(null)
 
+  const activeCategory = CATEGORIES.find((option) => option.label === category)
+
   const visibleAssets = useMemo(
     () =>
       ASSETS.filter(
         (asset) =>
-          (category === 'All' || asset.category === category) &&
+          activeCategory.matches(asset) &&
           (!format || asset.formats.includes(format)) &&
           matchesQuery(asset, query.trim()),
       ),
-    [query, category, format],
+    [query, activeCategory, format],
   )
 
   const hasFilters = query.trim() !== '' || category !== 'All' || format !== null
@@ -224,9 +269,9 @@ export default function AssetsLibraryPage() {
       <section className="border-b border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 lg:px-8">
           <FilterRow label="Category">
-            {CATEGORIES.map((value) => (
-              <Pill key={value} active={category === value} onClick={() => setCategory(value)}>
-                {value}
+            {CATEGORIES.map(({ label, icon }) => (
+              <Pill key={label} icon={icon} active={category === label} onClick={() => setCategory(label)}>
+                {label}
               </Pill>
             ))}
           </FilterRow>
@@ -305,18 +350,29 @@ function FilterRow({ label, children }) {
   )
 }
 
-function Pill({ active, onClick, children }) {
+function Pill({ active, onClick, icon: Icon, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors ${
+      className={`group/pill flex items-center gap-2 border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors ${
         active
           ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
           : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
       }`}
     >
+      {Icon && (
+        <Icon
+          className={`h-3.5 w-3.5 shrink-0 transition-colors ${
+            active
+              ? ''
+              : 'text-neutral-400 group-hover/pill:text-neutral-900 dark:text-neutral-500 dark:group-hover/pill:text-neutral-100'
+          }`}
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      )}
       {children}
     </button>
   )

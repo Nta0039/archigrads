@@ -1,99 +1,95 @@
-import { useState } from 'react'
-import { ArrowLeft, Download } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Download, Search, X } from 'lucide-react'
 import ThemeToggle from '../theme/ThemeToggle'
 
 /**
  * Asset catalogue.
  *
  * Thumbnails live in `public/assets-preview/`; the heavy source files are hosted
- * in the Supabase `assets` bucket so the repo stays small. Add a new thumbnail
- * to FILES and, if it has a downloadable source, an entry to REMOTE_SOURCES.
+ * in the Supabase `assets` bucket so the repo stays small. Entries without a
+ * `source` are placeholders (mock data) that show the layout until the real
+ * files are imported: they render a grey preview tile and a "Coming soon" tag.
  */
-const BASE_PATH = '/assets-preview'
+const PREVIEW = '/assets-preview'
 const STORAGE = 'https://eacxrglkllttghdpbrff.supabase.co/storage/v1/object/public/assets'
 
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'webp']
-
-// Thumbnails present in public/assets-preview.
-const FILES = [
-  'bike.jpg',
-  'car.png',
-  'furniture set.png',
-  'Shrub Cluster.jpg',
-  'Sitting Figure.jpg',
-  'tree section.png',
-  'Walking Figure.jpg',
-]
-
-// Hosted source files, keyed by thumbnail base name. The oversized PSD is split
-// into parts and recombined in the browser on download.
-const REMOTE_SOURCES = {
-  bike: { filename: 'bike.psd', urls: [`${STORAGE}/bike.psd`] },
-  car: { filename: 'car.dwg', urls: [`${STORAGE}/car.dwg`] },
-  'furniture set': { filename: 'furniture set.ai', urls: [`${STORAGE}/furniture-set.ai`] },
-  'Shrub Cluster': {
-    filename: 'Shrub Cluster.psd',
-    urls: [
-      `${STORAGE}/shrub-cluster.psd.part1`,
-      `${STORAGE}/shrub-cluster.psd.part2`,
-      `${STORAGE}/shrub-cluster.psd.part3`,
-    ],
+const ASSETS = [
+  {
+    title: 'Walking Figure',
+    category: 'People',
+    image: 'Walking Figure.jpg',
+    formats: ['.psd'],
+    source: { filename: 'Walking Figure.psd', urls: [`${STORAGE}/walking-figure.psd`] },
   },
-  'Sitting Figure': { filename: 'Sitting Figure.psd', urls: [`${STORAGE}/sitting-figure.psd`] },
-  'tree section': { filename: 'tree section.psd', urls: [`${STORAGE}/tree-section.psd`] },
-  'Walking Figure': { filename: 'Walking Figure.psd', urls: [`${STORAGE}/walking-figure.psd`] },
-}
+  {
+    title: 'Sitting Figure',
+    category: 'People',
+    image: 'Sitting Figure.jpg',
+    formats: ['.psd'],
+    source: { filename: 'Sitting Figure.psd', urls: [`${STORAGE}/sitting-figure.psd`] },
+  },
+  {
+    title: 'Shrub Cluster',
+    category: 'Vegetation',
+    image: 'Shrub Cluster.jpg',
+    formats: ['.psd'],
+    // The oversized PSD is split into parts and recombined in the browser.
+    source: {
+      filename: 'Shrub Cluster.psd',
+      urls: [
+        `${STORAGE}/shrub-cluster.psd.part1`,
+        `${STORAGE}/shrub-cluster.psd.part2`,
+        `${STORAGE}/shrub-cluster.psd.part3`,
+      ],
+    },
+  },
+  {
+    title: 'Tree Section',
+    category: 'Vegetation',
+    image: 'tree section.png',
+    formats: ['.psd'],
+    source: { filename: 'tree section.psd', urls: [`${STORAGE}/tree-section.psd`] },
+  },
+  {
+    title: 'Bike',
+    category: 'Vehicles',
+    image: 'bike.jpg',
+    formats: ['.psd'],
+    source: { filename: 'bike.psd', urls: [`${STORAGE}/bike.psd`] },
+  },
+  {
+    title: 'Car',
+    category: 'Vehicles',
+    image: 'car.png',
+    formats: ['.dwg'],
+    source: { filename: 'car.dwg', urls: [`${STORAGE}/car.dwg`] },
+  },
+  {
+    title: 'Furniture Set',
+    category: 'Furniture',
+    image: 'furniture set.png',
+    formats: ['.ai'],
+    source: { filename: 'furniture set.ai', urls: [`${STORAGE}/furniture-set.ai`] },
+  },
 
-/** Keyword-based categorisation so new files land in a sensible bucket. */
-function categorise(name) {
-  const value = name.toLowerCase()
-  if (/(tree|plant|shrub|grass|flower|leaf|vegetation|bush|hedge|palm)/.test(value)) {
-    return 'Vegetation'
-  }
-  if (/(car|bus|truck|van|bike|bicycle|motor|vehicle|taxi|scooter)/.test(value)) {
-    return 'Vehicles'
-  }
-  if (/(man|woman|person|people|figure|human|sitting|walking|standing|child)/.test(value)) {
-    return 'People'
-  }
-  if (/(chair|table|sofa|furniture|desk|stool|bed|lamp|shelf|bench)/.test(value)) {
-    return 'Furniture'
-  }
-  return 'Other'
-}
+  // Mock entries — replace with real files as they are imported.
+  { title: 'Crowd Silhouettes', category: 'People', formats: ['.ai', '.png'] },
+  { title: 'Deciduous Tree Elevations', category: 'Vegetation', formats: ['.dwg', '.png'] },
+  { title: 'Parametric Planter', category: 'Vegetation', formats: ['.3dm'] },
+  { title: 'Lounge Chair Pack', category: 'Furniture', formats: ['.skp', '.dwg'] },
+  { title: 'Office Desk Blocks', category: 'Furniture', formats: ['.dwg', '.3dm'] },
+  { title: 'City Bus Elevation', category: 'Vehicles', formats: ['.ai', '.png'] },
+  { title: 'Board-Formed Concrete', category: 'Textures', formats: ['.png', '.psd'] },
+  { title: 'Oak Timber Cladding', category: 'Textures', formats: ['.png'] },
+  { title: 'Brick Stretcher Bond', category: 'Textures', formats: ['.png', '.skp'] },
+].map((asset, index) => ({
+  ...asset,
+  id: index + 1,
+  imageUrl: asset.image ? encodeURI(`${PREVIEW}/${asset.image}`) : null,
+}))
 
-/** Builds the catalogue from the thumbnail list, pairing each with its source. */
-function buildAssets(files) {
-  const groups = new Map()
-
-  for (const file of files) {
-    const dot = file.lastIndexOf('.')
-    const base = dot === -1 ? file : file.slice(0, dot)
-    const extension = dot === -1 ? '' : file.slice(dot + 1).toLowerCase()
-
-    if (!groups.has(base)) groups.set(base, { base })
-    const group = groups.get(base)
-    if (IMAGE_EXTENSIONS.includes(extension)) group.image = file
-  }
-
-  return [...groups.values()]
-    .filter((group) => group.image)
-    .map((group, index) => {
-      const remote = REMOTE_SOURCES[group.base]
-      return {
-        id: index + 1,
-        title: group.base,
-        category: categorise(group.base),
-        imageUrl: encodeURI(`${BASE_PATH}/${group.image}`),
-        downloadUrls: remote ? remote.urls : [encodeURI(`${BASE_PATH}/${group.image}`)],
-        fileName: remote ? remote.filename : group.image,
-      }
-    })
-}
-
-const ASSETS = buildAssets(FILES)
-
-const CATEGORIES = ['All', 'People', 'Vegetation', 'Vehicles', 'Furniture']
+const CATEGORIES = ['All', 'People', 'Vegetation', 'Vehicles', 'Furniture', 'Textures']
+const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.skp', '.3dm']
 
 function triggerAnchorDownload(href, filename) {
   const link = document.createElement('a')
@@ -127,87 +123,221 @@ async function forceDownload(urls, filename) {
   }
 }
 
-export default function AssetsLibraryPage({ onBack }) {
-  const [activeCategory, setActiveCategory] = useState('All')
+function matchesQuery(asset, query) {
+  if (!query) return true
+  const haystack = [asset.title, asset.category, ...asset.formats].join(' ').toLowerCase()
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .every((word) => haystack.includes(word))
+}
 
-  const visibleAssets =
-    activeCategory === 'All' ? ASSETS : ASSETS.filter((asset) => asset.category === activeCategory)
+/** ArchiGrads homepage: a searchable, filterable architectural asset library. */
+export default function AssetsLibraryPage() {
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('All')
+  const [format, setFormat] = useState(null)
+
+  const visibleAssets = useMemo(
+    () =>
+      ASSETS.filter(
+        (asset) =>
+          (category === 'All' || asset.category === category) &&
+          (!format || asset.formats.includes(format)) &&
+          matchesQuery(asset, query.trim()),
+      ),
+    [query, category, format],
+  )
+
+  const hasFilters = query.trim() !== '' || category !== 'All' || format !== null
+  const clearFilters = () => {
+    setQuery('')
+    setCategory('All')
+    setFormat(null)
+  }
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8 lg:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
-        >
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Back to Home
-        </button>
-        <ThemeToggle />
-      </div>
+    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:bg-neutral-950 dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
+      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/85">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
+          <a href="/" className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center border border-neutral-900 dark:border-neutral-100">
+              <span className="h-2 w-2 bg-neutral-900 dark:bg-neutral-100" />
+            </span>
+            <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
+          </a>
+          <ThemeToggle />
+        </div>
+      </header>
 
-      <main className="mx-auto max-w-6xl px-6 pb-24 lg:px-8">
-        <header className="max-w-2xl border-t border-neutral-200 dark:border-neutral-800 pt-12">
+      {/* Hero & search */}
+      <section className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mx-auto max-w-7xl px-6 py-16 text-center sm:py-24 lg:px-8">
           <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400 dark:text-neutral-500">
             Vector Assets Library
           </p>
-          <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-            Cutouts, blocks and materials.
+          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
+            Premium Architectural Assets
           </h1>
-          <p className="mt-5 leading-relaxed text-neutral-500 dark:text-neutral-400">
-            A curated collection of architectural vector assets for your sections and elevations.
-            Browse by category and download the source files.
+          <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
+            Cutouts, CAD blocks, models and textures for your sections, elevations and renders.
           </p>
-        </header>
 
-        {/* Category filter */}
-        <div className="mt-12 flex flex-wrap items-center gap-2 border-y border-neutral-200 dark:border-neutral-800 py-4">
-          {CATEGORIES.map((category) => {
-            const isActive = category === activeCategory
-            return (
+          <form
+            role="search"
+            onSubmit={(event) => event.preventDefault()}
+            className="mx-auto mt-10 flex max-w-3xl items-stretch border border-neutral-300 bg-white transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus-within:border-neutral-100"
+          >
+            <label htmlFor="asset-search" className="flex items-center pl-5 text-neutral-400 dark:text-neutral-500">
+              <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              <span className="sr-only">Search assets</span>
+            </label>
+            <input
+              id="asset-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search people, trees, furniture, textures…"
+              className="min-w-0 flex-1 bg-transparent px-4 py-4 text-base outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
               <button
-                key={category}
                 type="button"
-                onClick={() => setActiveCategory(category)}
-                className={`px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] transition-colors ${
-                  isActive
-                    ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
-                    : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
-                }`}
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+                className="flex items-center px-3 text-neutral-400 transition-colors hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-100"
               >
-                {category}
+                <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </button>
-            )
-          })}
+            )}
+            <button
+              type="submit"
+              className="bg-neutral-900 px-6 text-sm font-medium text-white transition-colors hover:bg-neutral-700 sm:px-8 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {/* Filters */}
+      <section className="border-b border-neutral-200 dark:border-neutral-800">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 lg:px-8">
+          <FilterRow label="Category">
+            {CATEGORIES.map((value) => (
+              <Pill key={value} active={category === value} onClick={() => setCategory(value)}>
+                {value}
+              </Pill>
+            ))}
+          </FilterRow>
+          <FilterRow label="Format">
+            <Pill active={format === null} onClick={() => setFormat(null)}>
+              Any
+            </Pill>
+            {FORMATS.map((value) => (
+              <Pill
+                key={value}
+                active={format === value}
+                onClick={() => setFormat(format === value ? null : value)}
+              >
+                {value}
+              </Pill>
+            ))}
+          </FilterRow>
+        </div>
+      </section>
+
+      <main className="mx-auto max-w-7xl px-6 pb-24 pt-8 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">{visibleAssets.length}</span>{' '}
+            {visibleAssets.length === 1 ? 'asset' : 'assets'}
+          </p>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-medium uppercase tracking-[0.15em] text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
 
-        {/* Asset grid */}
-        <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
           {visibleAssets.map((asset) => (
             <AssetCard key={asset.id} asset={asset} />
           ))}
         </div>
 
         {visibleAssets.length === 0 && (
-          <p className="mt-16 text-center text-sm text-neutral-400 dark:text-neutral-500">No assets in this category yet.</p>
+          <div className="mt-16 text-center">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">No assets match these filters.</p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 border border-neutral-300 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+            >
+              Clear filters
+            </button>
+          </div>
         )}
       </main>
+
+      <footer className="border-t border-neutral-200 dark:border-neutral-800">
+        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-6 py-10 text-sm text-neutral-400 sm:flex-row sm:items-center lg:px-8 dark:text-neutral-500">
+          <p>© {new Date().getFullYear()} ArchiGrads. All rights reserved.</p>
+          <p className="text-xs uppercase tracking-[0.2em]">Built for architecture students</p>
+        </div>
+      </footer>
     </div>
+  )
+}
+
+function FilterRow({ label, children }) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <span className="w-20 shrink-0 text-[10px] font-medium uppercase tracking-[0.25em] text-neutral-400 dark:text-neutral-500">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  )
+}
+
+function Pill({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors ${
+        active
+          ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+          : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function FormatBadge({ format }) {
+  return (
+    <span className="border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+      {format.replace('.', '')}
+    </span>
   )
 }
 
 function AssetCard({ asset }) {
   const [failed, setFailed] = useState(false)
+  const showImage = asset.imageUrl && !failed
 
   return (
-    <figure className="group overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200 dark:bg-neutral-800">
-        {failed ? (
-          <div className="flex h-full w-full items-center justify-center bg-gray-200 dark:bg-neutral-800 text-[10px] font-medium uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">
-            Asset Preview
-          </div>
-        ) : (
+    <figure className="group overflow-hidden border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
+      <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+        {showImage ? (
           <img
             src={asset.imageUrl}
             alt={asset.title}
@@ -216,28 +346,44 @@ function AssetCard({ asset }) {
             onError={() => setFailed(true)}
             className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+            Asset Preview
+          </div>
         )}
 
-        <a
-          href={asset.downloadUrls[0]}
-          download={asset.fileName}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            forceDownload(asset.downloadUrls, asset.fileName)
-          }}
-          className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
-        >
-          <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-          Download
-        </a>
+        {asset.source ? (
+          <a
+            href={asset.source.urls[0]}
+            download={asset.source.filename}
+            onClick={(event) => {
+              event.preventDefault()
+              forceDownload(asset.source.urls, asset.source.filename)
+            }}
+            className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100"
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            Download
+          </a>
+        ) : (
+          <span className="absolute left-3 top-3 bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
+            Coming soon
+          </span>
+        )}
       </div>
 
-      <figcaption className="flex items-center justify-between gap-2 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3">
-        <span className="truncate text-sm text-neutral-800 dark:text-neutral-200">{asset.title}</span>
-        <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
-          {asset.category}
-        </span>
+      <figcaption className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-sm text-neutral-800 dark:text-neutral-200">{asset.title}</span>
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
+            {asset.category}
+          </span>
+        </div>
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {asset.formats.map((format) => (
+            <FormatBadge key={format} format={format} />
+          ))}
+        </div>
       </figcaption>
     </figure>
   )

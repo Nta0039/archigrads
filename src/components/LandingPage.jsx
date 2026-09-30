@@ -35,7 +35,7 @@ const SERVICES = [
  */
 export default function LandingPage({ onNavigate }) {
   return (
-    <div className="min-h-screen bg-white text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white">
+    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white">
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 lg:px-8">
           <a href="#top" className="flex items-center gap-2.5">
@@ -121,7 +121,7 @@ export default function LandingPage({ onNavigate }) {
         </section>
 
         {/* Closing call to action */}
-        <section id="contact" className="border-t border-neutral-200 bg-neutral-50">
+        <section id="contact" className="border-t border-neutral-300 bg-neutral-200">
           <div className="mx-auto max-w-6xl px-6 py-20 lg:px-8 lg:py-24">
             <h2 className="max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
               Ready to spend more time designing?

@@ -6,3 +6,6 @@ dist-ssr
 .env.*
 !.env.example
 .DS_Store
+
+# Local scratch output (may contain env values)
+Claude outputs/

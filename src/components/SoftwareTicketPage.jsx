@@ -69,7 +69,7 @@ export default function SoftwareTicketPage({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 antialiased">
+    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased">
       <div className="mx-auto max-w-6xl px-6 py-8 lg:px-8">
         <button
           type="button"

@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from 'react'
 import {
   Box,
   Boxes,
+  CircleAlert,
   Crown,
   Download,
   FolderOpen,
@@ -9,148 +10,29 @@ import {
   Image,
   Images,
   LayoutGrid,
+  LoaderCircle,
   ScrollText,
   Search,
+  ShoppingBag,
   X,
 } from 'lucide-react'
+import { ASSETS, PRODUCT_TYPES, formatAud } from '../data/catalogue'
+import { forceDownload } from '../lib/download'
 
-/**
- * Asset catalogue.
- *
- * Thumbnails live in `public/assets-preview/`; the heavy source files are hosted
- * in the Supabase `assets` bucket so the repo stays small. Entries without a
- * `source` are placeholders (mock data) that show the layout until the real
- * files are imported: they render a grey preview tile and a "Coming soon" tag.
- */
-const PREVIEW = '/assets-preview'
-const STORAGE = 'https://eacxrglkllttghdpbrff.supabase.co/storage/v1/object/public/assets'
-
-/**
- * Pricing model (AUD). Every product type has one price and one download
- * allowance, so an asset's price comes from its type rather than being typed
- * per item. 2D Singles are free.
- */
-const PRODUCT_TYPES = {
-  '2D Singles': { icon: Image, price: null },
-  '2D Collections': { icon: Images, price: 10, allowance: '50 downloads' },
-  'Code & Standards': { icon: ScrollText, price: 20, allowance: '20 downloads' },
-  'BIM Families': { icon: Boxes, price: 10, allowance: '20 downloads' },
-  'Detailed Models': { icon: Box, price: 20, allowance: '10 downloads' },
-  'Project Proposals': { icon: FolderOpen, price: 10, allowance: 'Per project' },
+const TYPE_ICONS = {
+  '2D Singles': Image,
+  '2D Collections': Images,
+  'Code & Standards': ScrollText,
+  'BIM Families': Boxes,
+  'Detailed Models': Box,
+  'Project Proposals': FolderOpen,
 }
-
-const formatAud = (amount) => `A$${amount}`
-
-/** Placeholder thumbnail that doubles as the (fake) download until real files exist. */
-function placeholder(image) {
-  return {
-    image,
-    source: { filename: image.replace('dummy-', 'archigrads-preview-'), urls: [`${PREVIEW}/${image}`] },
-  }
-}
-
-const ASSETS = [
-  // 2D Singles: the real, downloadable files.
-  {
-    title: 'Walking Figure',
-    type: '2D Singles',
-    subject: 'People',
-    image: 'Walking Figure.jpg',
-    formats: ['.psd'],
-    source: { filename: 'Walking Figure.psd', urls: [`${STORAGE}/walking-figure.psd`] },
-  },
-  {
-    title: 'Sitting Figure',
-    type: '2D Singles',
-    subject: 'People',
-    image: 'Sitting Figure.jpg',
-    formats: ['.psd'],
-    source: { filename: 'Sitting Figure.psd', urls: [`${STORAGE}/sitting-figure.psd`] },
-  },
-  {
-    title: 'Shrub Cluster',
-    type: '2D Singles',
-    subject: 'Vegetation',
-    image: 'Shrub Cluster.jpg',
-    formats: ['.psd'],
-    // The oversized PSD is split into parts and recombined in the browser.
-    source: {
-      filename: 'Shrub Cluster.psd',
-      urls: [
-        `${STORAGE}/shrub-cluster.psd.part1`,
-        `${STORAGE}/shrub-cluster.psd.part2`,
-        `${STORAGE}/shrub-cluster.psd.part3`,
-      ],
-    },
-  },
-  {
-    title: 'Tree Section',
-    type: '2D Singles',
-    subject: 'Vegetation',
-    image: 'tree section.png',
-    formats: ['.psd'],
-    source: { filename: 'tree section.psd', urls: [`${STORAGE}/tree-section.psd`] },
-  },
-  {
-    title: 'Bike',
-    type: '2D Singles',
-    subject: 'Vehicles',
-    image: 'bike.jpg',
-    formats: ['.psd'],
-    source: { filename: 'bike.psd', urls: [`${STORAGE}/bike.psd`] },
-  },
-  {
-    title: 'Car',
-    type: '2D Singles',
-    subject: 'Vehicles',
-    image: 'car.png',
-    formats: ['.dwg'],
-    source: { filename: 'car.dwg', urls: [`${STORAGE}/car.dwg`] },
-  },
-  {
-    title: 'Furniture Set',
-    type: '2D Singles',
-    subject: 'Furniture',
-    image: 'furniture set.png',
-    formats: ['.ai'],
-    source: { filename: 'furniture set.ai', urls: [`${STORAGE}/furniture-set.ai`] },
-  },
-
-  // Mock entries — replace with real files as they are imported. Premium mocks use
-  // a placeholder thumbnail, and "Download" saves that thumbnail for now.
-  { title: 'Brick Stretcher Bond', type: '2D Singles', subject: 'Textures', formats: ['.png'] },
-  { title: 'People Cutout Collection', type: '2D Collections', subject: 'People', formats: ['.psd', '.png'], ...placeholder('dummy-2d-collection.png') },
-  { title: 'Vegetation Elevation Collection', type: '2D Collections', subject: 'Vegetation', formats: ['.dwg', '.png'], ...placeholder('dummy-2d-collection.png') },
-  { title: 'Street Furniture Collection', type: '2D Collections', subject: 'Furniture', formats: ['.ai', '.dwg'], ...placeholder('dummy-2d-collection.png') },
-  { title: 'NCC Volume One Compliance Pack', type: 'Code & Standards', subject: 'NCC', formats: ['.pdf'], ...placeholder('dummy-ncc.png') },
-  { title: 'Accessibility (AS 1428.1) Pack', type: 'Code & Standards', subject: 'NCC', formats: ['.pdf', '.dwg'], ...placeholder('dummy-ncc.png') },
-  { title: 'Fire Safety Checklist Pack', type: 'Code & Standards', subject: 'NCC', formats: ['.pdf'], ...placeholder('dummy-ncc.png') },
-  { title: 'Door Families', type: 'BIM Families', subject: 'Revit', formats: ['.rfa'], ...placeholder('dummy-revit-family.png') },
-  { title: 'Window Families', type: 'BIM Families', subject: 'Revit', formats: ['.rfa'], ...placeholder('dummy-revit-family.png') },
-  { title: 'Furniture Families', type: 'BIM Families', subject: 'Revit', formats: ['.rfa'], ...placeholder('dummy-revit-family.png') },
-  { title: 'CLT Stair Assembly', type: 'Detailed Models', subject: 'Revit', formats: ['.rvt'], ...placeholder('dummy-revit-model.png') },
-  { title: 'Facade Fin System', type: 'Detailed Models', subject: 'Rhino', formats: ['.3dm'], ...placeholder('dummy-rhino-model.png') },
-  { title: 'Timber Pavilion', type: 'Detailed Models', subject: 'Revit / Rhino', formats: ['.rvt', '.3dm'], ...placeholder('dummy-revit-model.png') },
-  { title: 'Community Library Proposal', type: 'Project Proposals', subject: 'Civic', formats: ['.pdf', '.rvt'], ...placeholder('dummy-project-proposal.png') },
-  { title: 'Mixed-Use Tower Proposal', type: 'Project Proposals', subject: 'Mixed use', formats: ['.pdf', '.3dm'], ...placeholder('dummy-project-proposal.png') },
-  { title: 'Pocket Park Proposal', type: 'Project Proposals', subject: 'Landscape', formats: ['.pdf', '.dwg'], ...placeholder('dummy-project-proposal.png') },
-].map((asset, index) => {
-  const { price, allowance } = PRODUCT_TYPES[asset.type]
-  return {
-    ...asset,
-    id: index + 1,
-    priceType: price ? 'premium' : 'free',
-    price,
-    allowance,
-    imageUrl: asset.image ? encodeURI(`${PREVIEW}/${asset.image}`) : null,
-  }
-})
 
 const CATEGORIES = [
   { label: 'All', icon: LayoutGrid, matches: () => true },
-  ...Object.entries(PRODUCT_TYPES).map(([label, { icon }]) => ({
+  ...Object.keys(PRODUCT_TYPES).map((label) => ({
     label,
-    icon,
+    icon: TYPE_ICONS[label],
     matches: (asset) => asset.type === label,
   })),
 ]
@@ -161,38 +43,6 @@ const PRICE_TYPES = [
 ]
 
 const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
-
-function triggerAnchorDownload(href, filename) {
-  const link = document.createElement('a')
-  link.href = href
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-}
-
-/**
- * Forces a download even when a browser would rather open the file. Fetches each
- * part as a blob (recombining split sources), saves it, and falls back to a plain
- * anchor download if the fetch fails.
- */
-async function forceDownload(urls, filename) {
-  try {
-    const blobs = []
-    for (const url of urls) {
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Request failed')
-      blobs.push(await response.blob())
-    }
-
-    const blob = blobs.length === 1 ? blobs[0] : new Blob(blobs)
-    const objectUrl = URL.createObjectURL(blob)
-    triggerAnchorDownload(objectUrl, filename)
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 4000)
-  } catch {
-    triggerAnchorDownload(urls[0], filename)
-  }
-}
 
 function matchesQuery(asset, query) {
   if (!query) return true
@@ -426,7 +276,8 @@ function PricingRules({ activeType, onSelectType }) {
       </div>
 
       <ul className="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-700 dark:bg-neutral-700">
-        {tiers.map(([type, { icon: Icon, price, allowance }]) => {
+        {tiers.map(([type, { price, allowance }]) => {
+          const Icon = TYPE_ICONS[type]
           const isActive = activeType === type
           return (
             <li key={type}>
@@ -456,6 +307,61 @@ function PricingRules({ activeType, onSelectType }) {
         })}
       </ul>
     </section>
+  )
+}
+
+/**
+ * Hover bar for premium cards: asks /api/checkout for a Stripe Checkout Session
+ * and sends the browser to Stripe's hosted payment page.
+ */
+function BuyButton({ asset }) {
+  const [status, setStatus] = useState('idle') // 'idle' | 'loading' | 'error'
+  const [message, setMessage] = useState('')
+
+  const startCheckout = async () => {
+    setStatus('loading')
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: asset.id }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.url) throw new Error(data.error || 'Checkout is unavailable right now.')
+      window.location.assign(data.url)
+    } catch (error) {
+      setMessage(error.message)
+      setStatus('error')
+    }
+  }
+
+  const visible = status === 'idle' ? '' : 'translate-y-0 opacity-100'
+
+  return (
+    <button
+      type="button"
+      onClick={startCheckout}
+      disabled={status === 'loading'}
+      title={status === 'error' ? message : undefined}
+      className={`absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-wait ${visible}`}
+    >
+      {status === 'loading' ? (
+        <>
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+          Opening secure checkout…
+        </>
+      ) : status === 'error' ? (
+        <>
+          <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+          <span className="truncate px-2">{message} Try again</span>
+        </>
+      ) : (
+        <>
+          <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+          Buy · {formatAud(asset.price)}
+        </>
+      )}
+    </button>
   )
 }
 
@@ -519,7 +425,9 @@ const AssetCard = memo(function AssetCard({ asset }) {
           </div>
         )}
 
-        {asset.source ? (
+        {asset.priceType === 'premium' ? (
+          <BuyButton asset={asset} />
+        ) : asset.source ? (
           <a
             href={asset.source.urls[0]}
             download={asset.source.filename}

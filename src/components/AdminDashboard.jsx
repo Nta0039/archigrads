@@ -1,14 +1,16 @@
-import { ArrowDownToLine, ArrowLeft, Eye, Layers, ShoppingBag, UserPlus, Users } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowDownToLine, ArrowLeft, Eye, Inbox, Layers, ShoppingBag, UserPlus, Users } from 'lucide-react'
 
 /**
- * Admin analytics view. Every number here is sample data for the mocked admin
- * login; wire these up to real analytics once the backend exists.
+ * Admin analytics view. There is no analytics backend yet, so by default the
+ * dashboard shows the honest empty state (zeros, no activity). The admin-only
+ * Presentation Mode toggle (`live`) fills it with the sample data below.
  */
 const METRICS = [
-  { label: "Today's Page Views", value: '1,245', change: '+8.2%', note: 'vs. yesterday', icon: Eye },
-  { label: 'Weekly Active Users', value: '843', change: '+3.1%', note: 'vs. last week', icon: Users },
-  { label: 'Total Premium Assets', value: '42', change: '+4', note: 'added this month', icon: Layers },
-  { label: 'Downloads This Week', value: '318', change: '−2.4%', note: 'vs. last week', icon: ArrowDownToLine },
+  { label: "Today's Page Views", value: 1245, change: '+8.2%', note: 'vs. yesterday', icon: Eye },
+  { label: 'Weekly Active Users', value: 843, change: '+3.1%', note: 'vs. last week', icon: Users },
+  { label: 'Total Premium Assets', value: 42, change: '+4', note: 'added this month', icon: Layers },
+  { label: 'Downloads This Week', value: 318, change: '−2.4%', note: 'vs. last week', icon: ArrowDownToLine },
 ]
 
 // Page views for the last 14 days, oldest first; the final entry is today.
@@ -36,8 +38,48 @@ const TOP_ASSETS = [
 ]
 
 const card = 'rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
-export default function AdminDashboard({ onBack }) {
+/** Counts up to `target` (ease-out, ~0.8s); drops straight to lower values. */
+function useCountUp(target, duration = 800) {
+  const [value, setValue] = useState(target)
+  const valueRef = useRef(target)
+
+  useEffect(() => {
+    const from = valueRef.current
+    if (target <= from || reducedMotion.matches) {
+      valueRef.current = target
+      setValue(target)
+      return undefined
+    }
+
+    let frame
+    const start = performance.now()
+    const tick = (now) => {
+      const progress = Math.min((now - start) / duration, 1)
+      const eased = 1 - (1 - progress) ** 3
+      valueRef.current = Math.round(from + (target - from) * eased)
+      setValue(valueRef.current)
+      if (progress < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    // Animation frames pause in background tabs; make sure the final number
+    // still lands on time.
+    const settle = setTimeout(() => {
+      cancelAnimationFrame(frame)
+      valueRef.current = target
+      setValue(target)
+    }, duration + 100)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(settle)
+    }
+  }, [target, duration])
+
+  return value
+}
+
+export default function AdminDashboard({ onBack, live }) {
   return (
     <main className="mx-auto max-w-7xl px-6 pb-24 pt-10 lg:px-8">
       <button
@@ -57,37 +99,51 @@ export default function AdminDashboard({ onBack }) {
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Dashboard</h1>
         </div>
         <span className="w-fit rounded border border-neutral-300 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-          Sample data
+          {live ? 'Sample data' : 'No data yet'}
         </span>
       </div>
 
       {/* Metric cards */}
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {METRICS.map(({ label, value, change, note, icon: Icon }) => (
-          <div key={label} className={`${card} p-5`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{label}</span>
-              <Icon className="h-4 w-4 text-neutral-400 dark:text-neutral-500" strokeWidth={1.75} aria-hidden />
-            </div>
-            <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">{value}</p>
-            <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-              <span className="font-medium text-neutral-900 dark:text-neutral-100">{change}</span> {note}
-            </p>
-          </div>
+        {METRICS.map((metric) => (
+          <MetricCard key={metric.label} {...metric} live={live} />
         ))}
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <PageViewsChart />
-        <RecentActivity />
+        <PageViewsChart live={live} />
+        <RecentActivity live={live} />
       </div>
 
-      <TopAssets />
+      <TopAssets live={live} />
     </main>
   )
 }
 
-function PageViewsChart() {
+function MetricCard({ label, value, change, note, icon: Icon, live }) {
+  const shown = useCountUp(live ? value : 0)
+
+  return (
+    <div className={`${card} p-5`}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{label}</span>
+        <Icon className="h-4 w-4 text-neutral-400 dark:text-neutral-500" strokeWidth={1.75} aria-hidden />
+      </div>
+      <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">{shown.toLocaleString('en-US')}</p>
+      <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+        {live ? (
+          <span key="live" className="fade-in inline-block">
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">{change}</span> {note}
+          </span>
+        ) : (
+          'No data yet'
+        )}
+      </p>
+    </div>
+  )
+}
+
+function PageViewsChart({ live }) {
   const max = 1500
   const gridlines = [1500, 1000, 500, 0]
 
@@ -95,7 +151,7 @@ function PageViewsChart() {
     <section className={`${card} p-5 lg:col-span-2`}>
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-sm font-semibold">Page views · last 14 days</h2>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">Hover a bar for details</span>
+        {live && <span className="text-xs text-neutral-500 dark:text-neutral-400">Hover a bar for details</span>}
       </div>
 
       <div className="mt-6 flex gap-3">
@@ -103,7 +159,7 @@ function PageViewsChart() {
         <div className="flex h-56 flex-col justify-between text-right text-[10px] tabular-nums text-neutral-400 dark:text-neutral-500">
           {gridlines.map((tick) => (
             <span key={tick} className="-translate-y-1/2 first:translate-y-0 last:translate-y-0">
-              {tick.toLocaleString()}
+              {tick.toLocaleString('en-US')}
             </span>
           ))}
         </div>
@@ -116,6 +172,12 @@ function PageViewsChart() {
             ))}
           </div>
 
+          {!live && (
+            <p className="absolute inset-0 flex items-center justify-center text-sm text-neutral-400 dark:text-neutral-500">
+              No page views recorded yet
+            </p>
+          )}
+
           <div className="relative flex h-full items-end gap-[2px]" role="list" aria-label="Daily page views">
             {PAGE_VIEWS.map(([day, views], index) => {
               const isToday = index === PAGE_VIEWS.length - 1
@@ -123,23 +185,31 @@ function PageViewsChart() {
                 <div
                   key={day}
                   role="listitem"
-                  tabIndex={0}
-                  aria-label={`${day}: ${views.toLocaleString()} page views`}
+                  tabIndex={live ? 0 : -1}
+                  aria-label={`${day}: ${(live ? views : 0).toLocaleString('en-US')} page views`}
                   className="group relative flex h-full flex-1 items-end outline-none"
                 >
                   <div
-                    className="w-full rounded-t-[4px] bg-neutral-800 transition-opacity group-hover:opacity-80 group-focus-visible:opacity-80 dark:bg-neutral-300"
-                    style={{ height: `${(views / max) * 100}%` }}
+                    className="w-full rounded-t-[4px] bg-neutral-800 transition-[height,opacity] duration-700 ease-out group-hover:opacity-80 group-focus-visible:opacity-80 motion-reduce:transition-none dark:bg-neutral-300"
+                    style={{
+                      height: live ? `${(views / max) * 100}%` : '0%',
+                      // Bars rise left to right when the data appears.
+                      transitionDelay: live ? `${index * 35}ms` : '0ms',
+                    }}
                   />
-                  {isToday && (
-                    <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 -translate-y-full pb-1 text-[10px] font-semibold tabular-nums group-hover:hidden">
-                      {views.toLocaleString()}
+                  {live && isToday && (
+                    <span className="fade-in absolute -top-0.5 left-1/2 -translate-x-1/2 -translate-y-full pb-1 text-[10px] font-semibold tabular-nums [animation-delay:700ms] group-hover:hidden">
+                      {views.toLocaleString('en-US')}
                     </span>
                   )}
-                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs shadow-lg group-hover:block group-focus-visible:block dark:border-neutral-700 dark:bg-neutral-950">
-                    <span className="block text-neutral-500 dark:text-neutral-400">{isToday ? `${day} (today)` : day}</span>
-                    <span className="font-semibold tabular-nums">{views.toLocaleString()} views</span>
-                  </span>
+                  {live && (
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs shadow-lg group-hover:block group-focus-visible:block dark:border-neutral-700 dark:bg-neutral-950">
+                      <span className="block text-neutral-500 dark:text-neutral-400">
+                        {isToday ? `${day} (today)` : day}
+                      </span>
+                      <span className="font-semibold tabular-nums">{views.toLocaleString('en-US')} views</span>
+                    </span>
+                  )}
                 </div>
               )
             })}
@@ -157,29 +227,46 @@ function PageViewsChart() {
   )
 }
 
-function RecentActivity() {
+function RecentActivity({ live }) {
   return (
-    <section className={`${card} p-5`}>
+    <section className={`${card} flex flex-col p-5`}>
       <h2 className="text-sm font-semibold">Recent activity</h2>
-      <ul className="mt-4 divide-y divide-neutral-100 dark:divide-neutral-800">
-        {ACTIVITY.map(({ icon: Icon, text, who, time }) => (
-          <li key={`${text}-${time}`} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-              <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm">{text}</p>
-              <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{who}</p>
-            </div>
-            <span className="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">{time}</span>
-          </li>
-        ))}
-      </ul>
+
+      {live ? (
+        <ul className="mt-4 divide-y divide-neutral-100 dark:divide-neutral-800">
+          {ACTIVITY.map(({ icon: Icon, text, who, time }, index) => (
+            <li
+              key={`${text}-${time}`}
+              className="fade-in flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm">{text}</p>
+                <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{who}</p>
+              </div>
+              <span className="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">{time}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500">
+            <Inbox className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <p className="mt-3 text-sm font-medium">No recent activity</p>
+          <p className="mt-1 max-w-[16rem] text-xs text-neutral-500 dark:text-neutral-400">
+            Purchases, downloads and sign-ups will appear here.
+          </p>
+        </div>
+      )}
     </section>
   )
 }
 
-function TopAssets() {
+function TopAssets({ live }) {
   const max = TOP_ASSETS[0].downloads
 
   return (
@@ -198,21 +285,29 @@ function TopAssets() {
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-            {TOP_ASSETS.map(({ title, category, downloads }) => (
-              <tr key={title}>
-                <td className="px-5 py-3">{title}</td>
-                <td className="px-5 py-3 text-neutral-500 dark:text-neutral-400">{category}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{downloads}</td>
-                <td className="px-5 py-3">
-                  <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800">
-                    <div
-                      className="h-full rounded-full bg-neutral-800 dark:bg-neutral-300"
-                      style={{ width: `${(downloads / max) * 100}%` }}
-                    />
-                  </div>
+            {live ? (
+              TOP_ASSETS.map(({ title, category, downloads }, index) => (
+                <tr key={title} className="fade-in" style={{ animationDelay: `${index * 60}ms` }}>
+                  <td className="px-5 py-3">{title}</td>
+                  <td className="px-5 py-3 text-neutral-500 dark:text-neutral-400">{category}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{downloads}</td>
+                  <td className="px-5 py-3">
+                    <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800">
+                      <div
+                        className="h-full rounded-full bg-neutral-800 dark:bg-neutral-300"
+                        style={{ width: `${(downloads / max) * 100}%` }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="px-5 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
+                  No downloads yet
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

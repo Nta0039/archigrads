@@ -14,6 +14,7 @@ export default function App() {
   const [userName, setUserName] = useState('')
   const [page, setPage] = useState('library')
   const [authMode, setAuthMode] = useState(null) // 'login' | 'signup' | null
+  const [isPresentationMode, setIsPresentationMode] = useState(false)
 
   const closeAuth = useCallback(() => setAuthMode(null), [])
 
@@ -28,6 +29,7 @@ export default function App() {
     setIsLoggedIn(false)
     setIsAdmin(false)
     setUserName('')
+    setIsPresentationMode(false)
     setPage('library')
   }
 
@@ -47,9 +49,15 @@ export default function App() {
         onNavigate={navigate}
         onOpenAuth={setAuthMode}
         onLogout={handleLogout}
+        isPresentationMode={isPresentationMode}
+        onTogglePresentation={() => setIsPresentationMode((on) => !on)}
       />
 
-      {showDashboard ? <AdminDashboard onBack={() => navigate('library')} /> : <AssetsLibraryPage />}
+      {showDashboard ? (
+        <AdminDashboard onBack={() => navigate('library')} live={isPresentationMode} />
+      ) : (
+        <AssetsLibraryPage />
+      )}
 
       <footer className="border-t border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-6 py-10 text-sm text-neutral-400 sm:flex-row sm:items-center lg:px-8 dark:text-neutral-500">

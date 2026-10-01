@@ -349,16 +349,14 @@ async function createCheckoutSession(assetId) {
   return data.url
 }
 
-/**
- * Hover bar for premium cards: asks /api/checkout for a Stripe Checkout Session
- * and sends the browser to Stripe's hosted payment page.
- */
-function BuyButton({ asset }) {
+/** Starts Stripe Checkout for one asset and redirects; exposes loading / error state. */
+function useCheckout(asset) {
   const [status, setStatus] = useState('idle') // 'idle' | 'loading' | 'error'
   const [message, setMessage] = useState('')
 
-  const startCheckout = async () => {
+  const start = async () => {
     setStatus('loading')
+    setMessage('')
     try {
       const url = await createCheckoutSession(asset.id)
       window.location.assign(url)
@@ -369,40 +367,14 @@ function BuyButton({ asset }) {
     }
   }
 
-  const visible = status === 'idle' ? '' : 'translate-y-0 opacity-100'
-
-  return (
-    <button
-      type="button"
-      onClick={startCheckout}
-      disabled={status === 'loading'}
-      title={status === 'error' ? message : undefined}
-      className={`absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 px-3 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-wait ${visible}`}
-    >
-      {status === 'loading' ? (
-        <>
-          <LoaderCircle className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
-          Opening secure checkout…
-        </>
-      ) : status === 'error' ? (
-        <>
-          <CircleAlert className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-          <span className="text-left text-[11px] leading-snug">
-            {message} <span className="underline underline-offset-2">Try again</span>
-          </span>
-        </>
-      ) : (
-        <>
-          <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-          Buy · {formatAud(asset.price)}
-        </>
-      )}
-    </button>
-  )
+  return { status, message, start }
 }
 
-/** Free badge, or the AUD price with its download allowance underneath. */
-function PriceTag({ asset }) {
+/**
+ * The card's price chip. For premium assets it is the Buy button: it shows the
+ * AUD price and download allowance and starts Stripe Checkout when clicked.
+ */
+function PriceTag({ asset, checkout }) {
   if (asset.priceType === 'free') {
     return (
       <span className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -411,19 +383,28 @@ function PriceTag({ asset }) {
     )
   }
 
+  const loading = checkout.status === 'loading'
   return (
-    <div
-      className="shrink-0 rounded-md bg-neutral-900 px-2.5 py-1.5 text-right text-white dark:bg-neutral-100 dark:text-neutral-900"
-      aria-label={`${formatAud(asset.price)}, ${asset.allowance}`}
+    <button
+      type="button"
+      onClick={checkout.start}
+      disabled={loading}
+      aria-label={`Buy ${asset.title} for ${formatAud(asset.price)} (${asset.allowance})`}
+      title="Buy with Stripe (test mode)"
+      className="shrink-0 rounded-md bg-neutral-900 px-2.5 py-1.5 text-right text-white shadow-sm transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300 dark:focus-visible:outline-neutral-100"
     >
-      <p className="flex items-center justify-end gap-1 text-sm font-semibold leading-none tabular-nums">
-        <Crown className="h-3 w-3 opacity-70" strokeWidth={2} aria-hidden />
+      <span className="flex items-center justify-end gap-1 text-sm font-semibold leading-none tabular-nums">
+        {loading ? (
+          <LoaderCircle className="h-3 w-3 animate-spin" strokeWidth={2} aria-hidden />
+        ) : (
+          <ShoppingBag className="h-3 w-3 opacity-70" strokeWidth={2} aria-hidden />
+        )}
         {formatAud(asset.price)}
-      </p>
-      <p className="mt-1 text-[9px] font-medium uppercase leading-none tracking-[0.12em] opacity-70">
-        {asset.allowance}
-      </p>
-    </div>
+      </span>
+      <span className="mt-1 block text-[9px] font-medium uppercase leading-none tracking-[0.12em] opacity-70">
+        {loading ? 'Opening checkout…' : asset.allowance}
+      </span>
+    </button>
   )
 }
 
@@ -442,6 +423,7 @@ function FormatBadge({ format }) {
 const AssetCard = memo(function AssetCard({ asset }) {
   const [failed, setFailed] = useState(false)
   const showImage = asset.imageUrl && !failed
+  const checkout = useCheckout(asset)
 
   return (
     <figure className="group overflow-hidden rounded-lg border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
@@ -461,9 +443,7 @@ const AssetCard = memo(function AssetCard({ asset }) {
           </div>
         )}
 
-        {asset.priceType === 'premium' ? (
-          <BuyButton asset={asset} />
-        ) : asset.source ? (
+        {asset.priceType === 'premium' ? null : asset.source ? (
           <a
             href={asset.source.urls[0]}
             download={asset.source.filename}
@@ -496,8 +476,14 @@ const AssetCard = memo(function AssetCard({ asset }) {
               <FormatBadge key={format} format={format} />
             ))}
           </div>
-          <PriceTag asset={asset} />
+          <PriceTag asset={asset} checkout={checkout} />
         </div>
+        {checkout.status === 'error' && (
+          <p role="alert" className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-snug text-neutral-600 dark:text-neutral-300">
+            <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            <span>{checkout.message}</span>
+          </p>
+        )}
       </figcaption>
     </figure>
   )

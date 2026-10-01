@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, CircleAlert, CircleCheck, Download, LoaderCircle } from 'lucide-react'
 import { findAsset, formatAud } from '../data/catalogue'
 import { forceDownload } from '../lib/download'
 import { recordSale } from '../lib/sales'
+import FeedbackModal from './FeedbackModal'
 
 /**
  * Stripe redirects here after checkout (/success?session_id=cs_test_...). The
@@ -11,6 +12,8 @@ import { recordSale } from '../lib/sales'
  */
 export default function SuccessPage({ onBack }) {
   const [state, setState] = useState({ status: 'loading' })
+  const [showFeedback, setShowFeedback] = useState(false)
+  const closeFeedback = useCallback(() => setShowFeedback(false), [])
 
   useEffect(() => {
     const sessionId = new URLSearchParams(window.location.search).get('session_id')
@@ -49,6 +52,28 @@ export default function SuccessPage({ onBack }) {
       cancelled = true
     }
   }, [])
+
+  // Invite feedback shortly after a confirmed payment, once per checkout (a
+  // reload of the same success page does not ask again).
+  const paidSessionId = state.status === 'paid' ? state.session.id : null
+  useEffect(() => {
+    if (!paidSessionId) return undefined
+    const seenKey = `archigrads-feedback-asked-${paidSessionId}`
+    try {
+      if (sessionStorage.getItem(seenKey)) return undefined
+    } catch {
+      // Storage blocked: just show the invitation.
+    }
+    const timer = setTimeout(() => {
+      setShowFeedback(true)
+      try {
+        sessionStorage.setItem(seenKey, '1')
+      } catch {
+        // Ignore: worst case the invitation shows again after a reload.
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [paidSessionId])
 
   const asset = state.session ? findAsset(state.session.assetId) : null
 
@@ -120,6 +145,8 @@ export default function SuccessPage({ onBack }) {
           Back to library
         </button>
       </div>
+
+      {showFeedback && <FeedbackModal onClose={closeFeedback} />}
     </main>
   )
 }

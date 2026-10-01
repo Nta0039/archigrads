@@ -1,18 +1,16 @@
 import { memo, useMemo, useState } from 'react'
 import {
-  Armchair,
   Box,
-  BrickWall,
-  Car,
+  Boxes,
   Crown,
   Download,
-  DraftingCompass,
+  FolderOpen,
   Gift,
-  Layers,
+  Image,
+  Images,
   LayoutGrid,
-  PersonStanding,
+  ScrollText,
   Search,
-  TreeDeciduous,
   X,
 } from 'lucide-react'
 
@@ -27,30 +25,44 @@ import {
 const PREVIEW = '/assets-preview'
 const STORAGE = 'https://eacxrglkllttghdpbrff.supabase.co/storage/v1/object/public/assets'
 
+/**
+ * Pricing model (AUD). Every product type has one price and one download
+ * allowance, so an asset's price comes from its type rather than being typed
+ * per item. 2D Singles are free.
+ */
+const PRODUCT_TYPES = {
+  '2D Singles': { icon: Image, price: null },
+  '2D Collections': { icon: Images, price: 10, allowance: '50 downloads' },
+  'Code & Standards': { icon: ScrollText, price: 20, allowance: '20 downloads' },
+  'BIM Families': { icon: Boxes, price: 10, allowance: '20 downloads' },
+  'Detailed Models': { icon: Box, price: 20, allowance: '10 downloads' },
+  'Project Proposals': { icon: FolderOpen, price: 10, allowance: 'Per project' },
+}
+
+const formatAud = (amount) => `A$${amount}`
+
 const ASSETS = [
+  // 2D Singles: the real, downloadable files.
   {
     title: 'Walking Figure',
-    category: 'People',
-    priceType: 'premium',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'People',
     image: 'Walking Figure.jpg',
     formats: ['.psd'],
     source: { filename: 'Walking Figure.psd', urls: [`${STORAGE}/walking-figure.psd`] },
   },
   {
     title: 'Sitting Figure',
-    category: 'People',
-    priceType: 'premium',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'People',
     image: 'Sitting Figure.jpg',
     formats: ['.psd'],
     source: { filename: 'Sitting Figure.psd', urls: [`${STORAGE}/sitting-figure.psd`] },
   },
   {
     title: 'Shrub Cluster',
-    category: 'Vegetation',
-    priceType: 'premium',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'Vegetation',
     image: 'Shrub Cluster.jpg',
     formats: ['.psd'],
     // The oversized PSD is split into parts and recombined in the browser.
@@ -65,87 +77,81 @@ const ASSETS = [
   },
   {
     title: 'Tree Section',
-    category: 'Vegetation',
-    priceType: 'premium',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'Vegetation',
     image: 'tree section.png',
     formats: ['.psd'],
     source: { filename: 'tree section.psd', urls: [`${STORAGE}/tree-section.psd`] },
   },
   {
     title: 'Bike',
-    category: 'Vehicles',
-    priceType: 'premium',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'Vehicles',
     image: 'bike.jpg',
     formats: ['.psd'],
     source: { filename: 'bike.psd', urls: [`${STORAGE}/bike.psd`] },
   },
   {
     title: 'Car',
-    category: 'Vehicles',
-    priceType: 'free',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'Vehicles',
     image: 'car.png',
     formats: ['.dwg'],
     source: { filename: 'car.dwg', urls: [`${STORAGE}/car.dwg`] },
   },
   {
     title: 'Furniture Set',
-    category: 'Furniture',
-    priceType: 'free',
-    kind: '2D',
+    type: '2D Singles',
+    subject: 'Furniture',
     image: 'furniture set.png',
     formats: ['.ai'],
     source: { filename: 'furniture set.ai', urls: [`${STORAGE}/furniture-set.ai`] },
   },
 
   // Mock entries — replace with real files as they are imported.
-  { title: 'Crowd Silhouettes', priceType: 'free', category: 'People', kind: '2D', formats: ['.ai', '.png'] },
-  { title: 'Scale Figures 3D', priceType: 'premium', category: 'People', kind: '3D', formats: ['.skp', '.3dm'] },
-  { title: 'Deciduous Tree Elevations', priceType: 'free', category: 'Vegetation', kind: '2D', formats: ['.dwg', '.png'] },
-  { title: 'Street Tree Model', priceType: 'premium', category: 'Vegetation', kind: '3D', formats: ['.skp'] },
-  { title: 'Parametric Planter', priceType: 'free', category: 'Vegetation', kind: '3D', formats: ['.3dm'] },
-  { title: 'City Bus Elevation', priceType: 'free', category: 'Vehicles', kind: '2D', formats: ['.ai', '.png'] },
-  { title: 'Hatchback Car Model', priceType: 'premium', category: 'Vehicles', kind: '3D', formats: ['.skp', '.3dm'] },
-  { title: 'Lounge Chair Pack', priceType: 'premium', category: 'Furniture', kind: '3D', formats: ['.skp', '.dwg'] },
-  { title: 'Office Desk Blocks', priceType: 'free', category: 'Furniture', kind: '3D', formats: ['.dwg', '.3dm'] },
-  // Textures are material maps, so they sit outside the 2D / 3D split.
-  { title: 'Board-Formed Concrete', priceType: 'premium', category: 'Textures', formats: ['.png', '.psd'] },
-  { title: 'Oak Timber Cladding', priceType: 'free', category: 'Textures', formats: ['.png'] },
-  { title: 'Brick Stretcher Bond', priceType: 'free', category: 'Textures', formats: ['.png'] },
-  { title: 'Curtain Wall Mullion', priceType: 'free', category: 'Details', kind: '2D', formats: ['.dwg'] },
-  { title: 'Green Roof Build-up', priceType: 'free', category: 'Details', kind: '2D', formats: ['.dwg', '.ai'] },
-  { title: 'Timber Stair Joint', priceType: 'premium', category: 'Details', kind: '3D', formats: ['.3dm', '.skp'] },
-].map((asset, index) => ({
-  ...asset,
-  id: index + 1,
-  imageUrl: asset.image ? encodeURI(`${PREVIEW}/${asset.image}`) : null,
-}))
+  { title: 'Brick Stretcher Bond', type: '2D Singles', subject: 'Textures', formats: ['.png'] },
+  { title: 'People Cutout Collection', type: '2D Collections', subject: 'People', formats: ['.psd', '.png'] },
+  { title: 'Vegetation Elevation Collection', type: '2D Collections', subject: 'Vegetation', formats: ['.dwg', '.png'] },
+  { title: 'Street Furniture Collection', type: '2D Collections', subject: 'Furniture', formats: ['.ai', '.dwg'] },
+  { title: 'NCC Volume One Compliance Pack', type: 'Code & Standards', subject: 'NCC', formats: ['.pdf'] },
+  { title: 'Accessibility (AS 1428.1) Pack', type: 'Code & Standards', subject: 'NCC', formats: ['.pdf', '.dwg'] },
+  { title: 'Fire Safety Checklist Pack', type: 'Code & Standards', subject: 'NCC', formats: ['.pdf'] },
+  { title: 'Door Families', type: 'BIM Families', subject: 'Revit', formats: ['.rfa'] },
+  { title: 'Window Families', type: 'BIM Families', subject: 'Revit', formats: ['.rfa'] },
+  { title: 'Furniture Families', type: 'BIM Families', subject: 'Revit', formats: ['.rfa'] },
+  { title: 'CLT Stair Assembly', type: 'Detailed Models', subject: 'Revit', formats: ['.rvt'] },
+  { title: 'Facade Fin System', type: 'Detailed Models', subject: 'Rhino', formats: ['.3dm'] },
+  { title: 'Timber Pavilion', type: 'Detailed Models', subject: 'Revit / Rhino', formats: ['.rvt', '.3dm'] },
+  { title: 'Community Library Proposal', type: 'Project Proposals', subject: 'Civic', formats: ['.pdf', '.rvt'] },
+  { title: 'Mixed-Use Tower Proposal', type: 'Project Proposals', subject: 'Mixed use', formats: ['.pdf', '.3dm'] },
+  { title: 'Pocket Park Proposal', type: 'Project Proposals', subject: 'Landscape', formats: ['.pdf', '.dwg'] },
+].map((asset, index) => {
+  const { price, allowance } = PRODUCT_TYPES[asset.type]
+  return {
+    ...asset,
+    id: index + 1,
+    priceType: price ? 'premium' : 'free',
+    price,
+    allowance,
+    imageUrl: asset.image ? encodeURI(`${PREVIEW}/${asset.image}`) : null,
+  }
+})
 
-/**
- * Category filters. "2D Assets" and "3D Models" are high-level classes that cut
- * across the subject categories, so they match on `kind` instead of `category`.
- */
 const CATEGORIES = [
   { label: 'All', icon: LayoutGrid, matches: () => true },
-  { label: '2D Assets', icon: Layers, matches: (asset) => asset.kind === '2D' },
-  { label: '3D Models', icon: Box, matches: (asset) => asset.kind === '3D' },
-  ...[
-    ['People', PersonStanding],
-    ['Vegetation', TreeDeciduous],
-    ['Vehicles', Car],
-    ['Furniture', Armchair],
-    ['Textures', BrickWall],
-    ['Details', DraftingCompass],
-  ].map(([label, icon]) => ({ label, icon, matches: (asset) => asset.category === label })),
+  ...Object.entries(PRODUCT_TYPES).map(([label, { icon }]) => ({
+    label,
+    icon,
+    matches: (asset) => asset.type === label,
+  })),
 ]
+
 const PRICE_TYPES = [
   { value: 'free', label: 'Free', icon: Gift },
   { value: 'premium', label: 'Premium', icon: Crown },
 ]
 
-const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.skp', '.3dm']
+const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
 
 function triggerAnchorDownload(href, filename) {
   const link = document.createElement('a')
@@ -181,7 +187,7 @@ async function forceDownload(urls, filename) {
 
 function matchesQuery(asset, query) {
   if (!query) return true
-  const haystack = [asset.title, asset.category, asset.kind ?? '', ...asset.formats].join(' ').toLowerCase()
+  const haystack = [asset.title, asset.type, asset.subject, asset.priceType, ...asset.formats].join(' ').toLowerCase()
   return query
     .toLowerCase()
     .split(/\s+/)
@@ -229,7 +235,7 @@ export default function AssetsLibraryPage() {
             Premium Architectural Assets
           </h1>
           <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-            Cutouts, CAD blocks, models and textures for your sections, elevations and renders.
+            Free 2D cutouts, plus premium collections, NCC code packs, Revit families, detailed models and full project proposals.
           </p>
 
           <form
@@ -387,6 +393,32 @@ function Pill({ active, onClick, icon: Icon, children }) {
   )
 }
 
+/** Free badge, or the AUD price with its download allowance underneath. */
+function PriceTag({ asset }) {
+  if (asset.priceType === 'free') {
+    return (
+      <span className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+        Free
+      </span>
+    )
+  }
+
+  return (
+    <div
+      className="shrink-0 rounded-md bg-neutral-900 px-2.5 py-1.5 text-right text-white dark:bg-neutral-100 dark:text-neutral-900"
+      aria-label={`${formatAud(asset.price)}, ${asset.allowance}`}
+    >
+      <p className="flex items-center justify-end gap-1 text-sm font-semibold leading-none tabular-nums">
+        <Crown className="h-3 w-3 opacity-70" strokeWidth={2} aria-hidden />
+        {formatAud(asset.price)}
+      </p>
+      <p className="mt-1 text-[9px] font-medium uppercase leading-none tracking-[0.12em] opacity-70">
+        {asset.allowance}
+      </p>
+    </div>
+  )
+}
+
 function FormatBadge({ format }) {
   return (
     <span className="rounded border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -439,29 +471,22 @@ const AssetCard = memo(function AssetCard({ asset }) {
             Coming soon
           </span>
         )}
-
-        {asset.priceType === 'premium' && (
-          <span
-            title="Premium asset"
-            className="absolute right-3 top-3 flex items-center gap-1 rounded bg-neutral-900/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white backdrop-blur-sm dark:bg-neutral-100/90 dark:text-neutral-900"
-          >
-            <Crown className="h-3 w-3" strokeWidth={2} aria-hidden />
-            Pro
-          </span>
-        )}
       </div>
 
       <figcaption className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm text-neutral-800 dark:text-neutral-200">{asset.title}</span>
-          <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
-            {asset.category}
-          </span>
-        </div>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {asset.formats.map((format) => (
-            <FormatBadge key={format} format={format} />
-          ))}
+        <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-200" title={asset.title}>
+          {asset.title}
+        </p>
+        <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-500">
+          {asset.type} · {asset.subject}
+        </p>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {asset.formats.map((format) => (
+              <FormatBadge key={format} format={format} />
+            ))}
+          </div>
+          <PriceTag asset={asset} />
         </div>
       </figcaption>
     </figure>

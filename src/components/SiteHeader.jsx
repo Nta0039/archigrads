@@ -2,10 +2,10 @@ import { LayoutDashboard, LogOut, Presentation } from 'lucide-react'
 import ThemeToggle from '../theme/ThemeToggle'
 
 const quietButton =
-  'rounded-md px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
+  'whitespace-nowrap rounded-md px-2.5 py-2 text-sm text-neutral-600 sm:px-3 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
 
 const solidButton =
-  'rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300'
+  'whitespace-nowrap rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white sm:px-4 transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300'
 
 /** Sticky site header: logo (+ admin link) on the left, account controls and theme toggle on the right. */
 export default function SiteHeader({
@@ -30,7 +30,7 @@ export default function SiteHeader({
               width={835}
               height={512}
               draggable={false}
-              className="h-8 w-auto dark:brightness-0 dark:invert"
+              className="h-7 w-auto sm:h-8 dark:brightness-0 dark:invert"
             />
             <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
           </button>

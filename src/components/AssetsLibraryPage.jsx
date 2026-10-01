@@ -13,7 +13,6 @@ import {
   TreeDeciduous,
   X,
 } from 'lucide-react'
-import ThemeToggle from '../theme/ThemeToggle'
 
 /**
  * Asset catalogue.
@@ -175,7 +174,7 @@ function matchesQuery(asset, query) {
     .every((word) => haystack.includes(word))
 }
 
-/** ArchiGrads homepage: a searchable, filterable architectural asset library. */
+/** The asset library: hero search, category / format filters and the grid. */
 export default function AssetsLibraryPage() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
@@ -202,19 +201,7 @@ export default function AssetsLibraryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:bg-neutral-950 dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
-      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/85">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
-          <a href="/" className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-neutral-900 dark:border-neutral-100">
-              <span className="h-2 w-2 rounded-[2px] bg-neutral-900 dark:bg-neutral-100" />
-            </span>
-            <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
-          </a>
-          <ThemeToggle />
-        </div>
-      </header>
-
+    <>
       {/* Hero & search */}
       <section className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto max-w-7xl px-6 py-16 text-center sm:py-24 lg:px-8">
@@ -328,14 +315,7 @@ export default function AssetsLibraryPage() {
           </div>
         )}
       </main>
-
-      <footer className="border-t border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-6 py-10 text-sm text-neutral-400 sm:flex-row sm:items-center lg:px-8 dark:text-neutral-500">
-          <p>© {new Date().getFullYear()} ArchiGrads. All rights reserved.</p>
-          <p className="text-xs uppercase tracking-[0.2em]">Built for architecture students</p>
-        </div>
-      </footer>
-    </div>
+    </>
   )
 }
 

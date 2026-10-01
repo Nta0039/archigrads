@@ -311,6 +311,45 @@ function PricingRules({ activeType, onSelectType }) {
 }
 
 /**
+ * POSTs to the /api/checkout serverless function and returns the Stripe-hosted
+ * checkout URL. Every failure becomes an Error whose message says what actually
+ * went wrong (network, missing API route, or the server's own error message).
+ */
+async function createCheckoutSession(assetId) {
+  let response
+  try {
+    response = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetId }),
+    })
+  } catch (networkError) {
+    throw new Error(`Network error reaching /api/checkout: ${networkError.message}`, { cause: networkError })
+  }
+
+  const body = await response.text()
+  let data = null
+  try {
+    data = JSON.parse(body)
+  } catch {
+    // Not JSON: usually an HTML 404 page because the API route isn't running.
+  }
+
+  if (!response.ok) {
+    if (data?.error) throw new Error(data.error)
+    if (response.status === 404) {
+      // `npm run dev` (plain Vite) does not run Vercel functions in /api.
+      throw new Error(
+        'Checkout API not found. Test on the live site or run `vercel dev` locally; `npm run dev` has no /api.',
+      )
+    }
+    throw new Error(`Checkout API returned HTTP ${response.status}: ${body.slice(0, 120)}`)
+  }
+  if (!data?.url) throw new Error(`Checkout API returned no checkout URL: ${body.slice(0, 120)}`)
+  return data.url
+}
+
+/**
  * Hover bar for premium cards: asks /api/checkout for a Stripe Checkout Session
  * and sends the browser to Stripe's hosted payment page.
  */
@@ -321,15 +360,10 @@ function BuyButton({ asset }) {
   const startCheckout = async () => {
     setStatus('loading')
     try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: asset.id }),
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok || !data.url) throw new Error(data.error || 'Checkout is unavailable right now.')
-      window.location.assign(data.url)
+      const url = await createCheckoutSession(asset.id)
+      window.location.assign(url)
     } catch (error) {
+      console.error('[checkout] Could not start Stripe Checkout:', error)
       setMessage(error.message)
       setStatus('error')
     }
@@ -343,7 +377,7 @@ function BuyButton({ asset }) {
       onClick={startCheckout}
       disabled={status === 'loading'}
       title={status === 'error' ? message : undefined}
-      className={`absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-wait ${visible}`}
+      className={`absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 px-3 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-wait ${visible}`}
     >
       {status === 'loading' ? (
         <>
@@ -352,8 +386,10 @@ function BuyButton({ asset }) {
         </>
       ) : status === 'error' ? (
         <>
-          <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-          <span className="truncate px-2">{message} Try again</span>
+          <CircleAlert className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+          <span className="text-left text-[11px] leading-snug">
+            {message} <span className="underline underline-offset-2">Try again</span>
+          </span>
         </>
       ) : (
         <>

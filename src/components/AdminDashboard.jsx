@@ -52,7 +52,7 @@ export default function AdminDashboard({ onBack }) {
       <div className="mt-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-neutral-400 dark:text-neutral-500">
-            Admin · 后台
+            Admin
           </p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Dashboard</h1>
         </div>

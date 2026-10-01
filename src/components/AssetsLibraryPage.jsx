@@ -4,8 +4,10 @@ import {
   Box,
   BrickWall,
   Car,
+  Crown,
   Download,
   DraftingCompass,
+  Gift,
   Layers,
   LayoutGrid,
   PersonStanding,
@@ -29,6 +31,7 @@ const ASSETS = [
   {
     title: 'Walking Figure',
     category: 'People',
+    priceType: 'premium',
     kind: '2D',
     image: 'Walking Figure.jpg',
     formats: ['.psd'],
@@ -37,6 +40,7 @@ const ASSETS = [
   {
     title: 'Sitting Figure',
     category: 'People',
+    priceType: 'premium',
     kind: '2D',
     image: 'Sitting Figure.jpg',
     formats: ['.psd'],
@@ -45,6 +49,7 @@ const ASSETS = [
   {
     title: 'Shrub Cluster',
     category: 'Vegetation',
+    priceType: 'premium',
     kind: '2D',
     image: 'Shrub Cluster.jpg',
     formats: ['.psd'],
@@ -61,6 +66,7 @@ const ASSETS = [
   {
     title: 'Tree Section',
     category: 'Vegetation',
+    priceType: 'premium',
     kind: '2D',
     image: 'tree section.png',
     formats: ['.psd'],
@@ -69,6 +75,7 @@ const ASSETS = [
   {
     title: 'Bike',
     category: 'Vehicles',
+    priceType: 'premium',
     kind: '2D',
     image: 'bike.jpg',
     formats: ['.psd'],
@@ -77,6 +84,7 @@ const ASSETS = [
   {
     title: 'Car',
     category: 'Vehicles',
+    priceType: 'free',
     kind: '2D',
     image: 'car.png',
     formats: ['.dwg'],
@@ -85,6 +93,7 @@ const ASSETS = [
   {
     title: 'Furniture Set',
     category: 'Furniture',
+    priceType: 'free',
     kind: '2D',
     image: 'furniture set.png',
     formats: ['.ai'],
@@ -92,22 +101,22 @@ const ASSETS = [
   },
 
   // Mock entries — replace with real files as they are imported.
-  { title: 'Crowd Silhouettes', category: 'People', kind: '2D', formats: ['.ai', '.png'] },
-  { title: 'Scale Figures 3D', category: 'People', kind: '3D', formats: ['.skp', '.3dm'] },
-  { title: 'Deciduous Tree Elevations', category: 'Vegetation', kind: '2D', formats: ['.dwg', '.png'] },
-  { title: 'Street Tree Model', category: 'Vegetation', kind: '3D', formats: ['.skp'] },
-  { title: 'Parametric Planter', category: 'Vegetation', kind: '3D', formats: ['.3dm'] },
-  { title: 'City Bus Elevation', category: 'Vehicles', kind: '2D', formats: ['.ai', '.png'] },
-  { title: 'Hatchback Car Model', category: 'Vehicles', kind: '3D', formats: ['.skp', '.3dm'] },
-  { title: 'Lounge Chair Pack', category: 'Furniture', kind: '3D', formats: ['.skp', '.dwg'] },
-  { title: 'Office Desk Blocks', category: 'Furniture', kind: '3D', formats: ['.dwg', '.3dm'] },
+  { title: 'Crowd Silhouettes', priceType: 'free', category: 'People', kind: '2D', formats: ['.ai', '.png'] },
+  { title: 'Scale Figures 3D', priceType: 'premium', category: 'People', kind: '3D', formats: ['.skp', '.3dm'] },
+  { title: 'Deciduous Tree Elevations', priceType: 'free', category: 'Vegetation', kind: '2D', formats: ['.dwg', '.png'] },
+  { title: 'Street Tree Model', priceType: 'premium', category: 'Vegetation', kind: '3D', formats: ['.skp'] },
+  { title: 'Parametric Planter', priceType: 'free', category: 'Vegetation', kind: '3D', formats: ['.3dm'] },
+  { title: 'City Bus Elevation', priceType: 'free', category: 'Vehicles', kind: '2D', formats: ['.ai', '.png'] },
+  { title: 'Hatchback Car Model', priceType: 'premium', category: 'Vehicles', kind: '3D', formats: ['.skp', '.3dm'] },
+  { title: 'Lounge Chair Pack', priceType: 'premium', category: 'Furniture', kind: '3D', formats: ['.skp', '.dwg'] },
+  { title: 'Office Desk Blocks', priceType: 'free', category: 'Furniture', kind: '3D', formats: ['.dwg', '.3dm'] },
   // Textures are material maps, so they sit outside the 2D / 3D split.
-  { title: 'Board-Formed Concrete', category: 'Textures', formats: ['.png', '.psd'] },
-  { title: 'Oak Timber Cladding', category: 'Textures', formats: ['.png'] },
-  { title: 'Brick Stretcher Bond', category: 'Textures', formats: ['.png'] },
-  { title: 'Curtain Wall Mullion', category: 'Details', kind: '2D', formats: ['.dwg'] },
-  { title: 'Green Roof Build-up', category: 'Details', kind: '2D', formats: ['.dwg', '.ai'] },
-  { title: 'Timber Stair Joint', category: 'Details', kind: '3D', formats: ['.3dm', '.skp'] },
+  { title: 'Board-Formed Concrete', priceType: 'premium', category: 'Textures', formats: ['.png', '.psd'] },
+  { title: 'Oak Timber Cladding', priceType: 'free', category: 'Textures', formats: ['.png'] },
+  { title: 'Brick Stretcher Bond', priceType: 'free', category: 'Textures', formats: ['.png'] },
+  { title: 'Curtain Wall Mullion', priceType: 'free', category: 'Details', kind: '2D', formats: ['.dwg'] },
+  { title: 'Green Roof Build-up', priceType: 'free', category: 'Details', kind: '2D', formats: ['.dwg', '.ai'] },
+  { title: 'Timber Stair Joint', priceType: 'premium', category: 'Details', kind: '3D', formats: ['.3dm', '.skp'] },
 ].map((asset, index) => ({
   ...asset,
   id: index + 1,
@@ -131,6 +140,11 @@ const CATEGORIES = [
     ['Details', DraftingCompass],
   ].map(([label, icon]) => ({ label, icon, matches: (asset) => asset.category === label })),
 ]
+const PRICE_TYPES = [
+  { value: 'free', label: 'Free', icon: Gift },
+  { value: 'premium', label: 'Premium', icon: Crown },
+]
+
 const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.skp', '.3dm']
 
 function triggerAnchorDownload(href, filename) {
@@ -179,6 +193,7 @@ export default function AssetsLibraryPage() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
   const [format, setFormat] = useState(null)
+  const [priceType, setPriceType] = useState(null) // 'free' | 'premium' | null
 
   const activeCategory = CATEGORIES.find((option) => option.label === category)
 
@@ -186,18 +201,20 @@ export default function AssetsLibraryPage() {
     () =>
       ASSETS.filter(
         (asset) =>
+          (!priceType || asset.priceType === priceType) &&
           activeCategory.matches(asset) &&
           (!format || asset.formats.includes(format)) &&
           matchesQuery(asset, query.trim()),
       ),
-    [query, activeCategory, format],
+    [query, priceType, activeCategory, format],
   )
 
-  const hasFilters = query.trim() !== '' || category !== 'All' || format !== null
+  const hasFilters = query.trim() !== '' || priceType !== null || category !== 'All' || format !== null
   const clearFilters = () => {
     setQuery('')
     setCategory('All')
     setFormat(null)
+    setPriceType(null)
   }
 
   return (
@@ -254,8 +271,20 @@ export default function AssetsLibraryPage() {
 
       {/* Filters */}
       <section className="border-b border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-8 lg:px-8">
           <FilterRow label="Category">
+            {/* Pricing works alongside the category, so "Premium" + "People" narrows both. */}
+            {PRICE_TYPES.map(({ value, label, icon }) => (
+              <Pill
+                key={value}
+                icon={icon}
+                active={priceType === value}
+                onClick={() => setPriceType(priceType === value ? null : value)}
+              >
+                {label}
+              </Pill>
+            ))}
+            <span aria-hidden className="mx-1 hidden h-6 w-px self-center bg-neutral-300 sm:block dark:bg-neutral-700" />
             {CATEGORIES.map(({ label, icon }) => (
               <Pill key={label} icon={icon} active={category === label} onClick={() => setCategory(label)}>
                 {label}
@@ -321,8 +350,8 @@ export default function AssetsLibraryPage() {
 
 function FilterRow({ label, children }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-      <span className="w-20 shrink-0 text-[10px] font-medium uppercase tracking-[0.25em] text-neutral-400 dark:text-neutral-500">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
+      <span className="w-24 shrink-0 text-xs font-medium uppercase tracking-[0.25em] sm:pt-3 text-neutral-400 dark:text-neutral-500">
         {label}
       </span>
       <div className="flex flex-wrap gap-2">{children}</div>
@@ -336,7 +365,7 @@ function Pill({ active, onClick, icon: Icon, children }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group/pill flex items-center gap-2 rounded-md border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors ${
+      className={`group/pill flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors sm:text-base ${
         active
           ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
           : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
@@ -344,7 +373,7 @@ function Pill({ active, onClick, icon: Icon, children }) {
     >
       {Icon && (
         <Icon
-          className={`h-3.5 w-3.5 shrink-0 transition-colors ${
+          className={`h-4 w-4 shrink-0 transition-colors sm:h-[18px] sm:w-[18px] ${
             active
               ? ''
               : 'text-neutral-400 group-hover/pill:text-neutral-900 dark:text-neutral-500 dark:group-hover/pill:text-neutral-100'
@@ -408,6 +437,16 @@ const AssetCard = memo(function AssetCard({ asset }) {
         ) : (
           <span className="absolute left-3 top-3 rounded bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
             Coming soon
+          </span>
+        )}
+
+        {asset.priceType === 'premium' && (
+          <span
+            title="Premium asset"
+            className="absolute right-3 top-3 flex items-center gap-1 rounded bg-neutral-900/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white backdrop-blur-sm dark:bg-neutral-100/90 dark:text-neutral-900"
+          >
+            <Crown className="h-3 w-3" strokeWidth={2} aria-hidden />
+            Pro
           </span>
         )}
       </div>

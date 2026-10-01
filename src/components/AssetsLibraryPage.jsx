@@ -324,6 +324,8 @@ export default function AssetsLibraryPage() {
       </section>
 
       <main className="mx-auto max-w-7xl px-6 pb-24 pt-8 lg:px-8">
+        {priceType === 'premium' && <PricingRules activeType={category} onSelectType={setCategory} />}
+
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             <span className="font-medium text-neutral-900 dark:text-neutral-100">{visibleAssets.length}</span>{' '}
@@ -399,6 +401,61 @@ function Pill({ active, onClick, icon: Icon, children }) {
       )}
       {children}
     </button>
+  )
+}
+
+/**
+ * Premium pricing summary, shown only while the Premium filter is on. Built
+ * from PRODUCT_TYPES so it can never disagree with the price tags on the cards.
+ * Each tier doubles as a shortcut to that category.
+ */
+function PricingRules({ activeType, onSelectType }) {
+  const tiers = Object.entries(PRODUCT_TYPES).filter(([, tier]) => tier.price)
+
+  return (
+    <section
+      aria-labelledby="pricing-rules-title"
+      className="fade-in mb-8 rounded-lg border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-700 dark:bg-neutral-800/50"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="pricing-rules-title" className="flex items-center gap-2 text-sm font-semibold">
+          <Crown className="h-4 w-4 text-neutral-500 dark:text-neutral-400" strokeWidth={1.75} aria-hidden />
+          Premium pricing
+        </h2>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">All prices in Australian dollars (AUD)</p>
+      </div>
+
+      <ul className="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-700 dark:bg-neutral-700">
+        {tiers.map(([type, { icon: Icon, price, allowance }]) => {
+          const isActive = activeType === type
+          return (
+            <li key={type}>
+              <button
+                type="button"
+                onClick={() => onSelectType(isActive ? 'All' : type)}
+                aria-pressed={isActive}
+                className={`flex h-full w-full flex-col items-start gap-2 px-4 py-3.5 text-left transition-colors ${
+                  isActive
+                    ? 'bg-white dark:bg-neutral-900'
+                    : 'bg-neutral-50 hover:bg-white dark:bg-neutral-800/80 dark:hover:bg-neutral-900'
+                }`}
+              >
+                <span className="flex items-center gap-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                  <Icon className="h-3.5 w-3.5 text-neutral-400 dark:text-neutral-500" strokeWidth={1.75} aria-hidden />
+                  {type}
+                </span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  <span className="text-lg font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                    {formatAud(price)}
+                  </span>{' '}
+                  / {allowance === 'Per project' ? 'project' : allowance}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

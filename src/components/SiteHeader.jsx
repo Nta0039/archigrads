@@ -22,9 +22,16 @@ export default function SiteHeader({
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-6">
           <button type="button" onClick={() => onNavigate('library')} className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-neutral-900 dark:border-neutral-100">
-              <span className="h-2 w-2 rounded-[2px] bg-neutral-900 dark:bg-neutral-100" />
-            </span>
+            {/* logo-mark.png is public/logo.png cropped to the cap. The mark is navy,
+                so dark mode flattens it to black and inverts it to pure white. */}
+            <img
+              src="/logo-mark.png"
+              alt=""
+              width={835}
+              height={512}
+              draggable={false}
+              className="h-8 w-auto dark:brightness-0 dark:invert"
+            />
             <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
           </button>
 

@@ -1,5 +1,6 @@
-import { findAsset } from '../src/data/catalogue.js'
+import { fetchAsset } from '../src/lib/catalogue.js'
 import { HttpError, getStripe, sendError } from './_stripe.js'
+import { getSupabaseAdmin } from './_supabase.js'
 
 /**
  * GET /api/session?session_id=cs_test_...
@@ -25,12 +26,15 @@ export default async function handler(req, res) {
       throw error
     }
 
-    const asset = findAsset(session.metadata?.assetId ?? '')
+    const assetId = session.metadata?.assetId ?? ''
+    const asset = assetId ? await fetchAsset(getSupabaseAdmin(), assetId) : null
     res.status(200).json({
       id: session.id,
       paid: session.payment_status === 'paid',
       assetId: asset?.id ?? null,
       title: asset?.title ?? 'Premium asset',
+      allowance: asset?.allowance ?? null,
+      hasSource: Boolean(asset?.hasSource),
       amount: (session.amount_total ?? 0) / 100,
       currency: (session.currency ?? 'aud').toUpperCase(),
       email: session.customer_details?.email ?? null,

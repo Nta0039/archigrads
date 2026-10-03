@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, CircleAlert, CircleCheck, Download, LoaderCircle } from 'lucide-react'
-import { findAsset, formatAud } from '../data/catalogue'
-import { forceDownload } from '../lib/download'
+import { formatAud } from '../lib/catalogue'
+import { downloadAsset } from '../lib/download'
 import { recordSale } from '../lib/sales'
 import FeedbackModal from './FeedbackModal'
 
 /**
  * Stripe redirects here after checkout (/success?session_id=cs_test_...). The
  * page asks /api/session whether the session was really paid, records the sale
- * for the admin dashboard, and offers the (placeholder) files.
+ * for the admin dashboard, and offers the files via signed links from
+ * /api/download (which re-checks the payment for the private file).
  */
 export default function SuccessPage({ onBack }) {
   const [state, setState] = useState({ status: 'loading' })
   const [showFeedback, setShowFeedback] = useState(false)
+  const [download, setDownload] = useState({ status: 'idle', message: '' })
   const closeFeedback = useCallback(() => setShowFeedback(false), [])
 
   useEffect(() => {
@@ -75,7 +77,16 @@ export default function SuccessPage({ onBack }) {
     return () => clearTimeout(timer)
   }, [paidSessionId])
 
-  const asset = state.session ? findAsset(state.session.assetId) : null
+  const startDownload = async () => {
+    setDownload({ status: 'loading', message: '' })
+    try {
+      await downloadAsset(state.session.assetId, state.session.id)
+      setDownload({ status: 'idle', message: '' })
+    } catch (error) {
+      console.error('[download] Could not download the purchase:', error)
+      setDownload({ status: 'error', message: error.message })
+    }
+  }
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-6 py-20">
@@ -116,19 +127,29 @@ export default function SuccessPage({ onBack }) {
               </div>
               <div className="bg-neutral-50 px-4 py-3 dark:bg-neutral-950">
                 <dt className="text-xs text-neutral-500 dark:text-neutral-400">Allowance</dt>
-                <dd className="mt-1 font-semibold">{asset?.allowance ?? '—'}</dd>
+                <dd className="mt-1 font-semibold">{state.session.allowance ?? '—'}</dd>
               </div>
             </dl>
 
-            {asset?.source && (
+            {state.session.hasSource && (
               <button
                 type="button"
-                onClick={() => forceDownload(asset.source.urls, asset.source.filename)}
-                className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-md bg-neutral-900 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 sm:w-auto sm:px-8 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                onClick={startDownload}
+                disabled={download.status === 'loading'}
+                className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-md bg-neutral-900 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:px-8 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
               >
-                <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Download Your Files
+                {download.status === 'loading' ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
+                ) : (
+                  <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                )}
+                {download.status === 'loading' ? 'Preparing your files…' : 'Download Your Files'}
               </button>
+            )}
+            {download.status === 'error' && (
+              <p role="alert" className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
+                {download.message}
+              </p>
             )}
             <p className="mt-3 text-[11px] text-neutral-400 dark:text-neutral-500">
               Stripe test mode: no real money was charged. Files are preview placeholders.

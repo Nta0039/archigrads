@@ -5,19 +5,22 @@ import {
   CircleAlert,
   Crown,
   Download,
+  Folder,
   FolderOpen,
   Gift,
   Image,
   Images,
   LayoutGrid,
   LoaderCircle,
+  RotateCcw,
   ScrollText,
   Search,
   ShoppingBag,
   X,
 } from 'lucide-react'
-import { ASSETS, PRODUCT_TYPES, formatAud } from '../data/catalogue'
-import { forceDownload } from '../lib/download'
+import { formatAud } from '../lib/catalogue'
+import { downloadAsset } from '../lib/download'
+import { useCatalogue } from '../lib/useCatalogue'
 
 const TYPE_ICONS = {
   '2D Singles': Image,
@@ -28,21 +31,31 @@ const TYPE_ICONS = {
   'Project Proposals': FolderOpen,
 }
 
-const CATEGORIES = [
-  { label: 'All', icon: LayoutGrid, matches: () => true },
-  ...Object.keys(PRODUCT_TYPES).map((label) => ({
-    label,
-    icon: TYPE_ICONS[label],
-    matches: (asset) => asset.type === label,
-  })),
-]
+/** Category pills come from the categories table; unknown new ones get a folder icon. */
+function buildCategoryOptions(categories) {
+  return [
+    { label: 'All', icon: LayoutGrid, matches: () => true },
+    ...categories.map(({ name }) => ({
+      label: name,
+      icon: TYPE_ICONS[name] ?? Folder,
+      matches: (asset) => asset.type === name,
+    })),
+  ]
+}
 
 const PRICE_TYPES = [
   { value: 'free', label: 'Free', icon: Gift },
   { value: 'premium', label: 'Premium', icon: Crown },
 ]
 
-const FORMATS = ['.psd', '.ai', '.png', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
+// Format pills list whatever formats the library contains, in this order first.
+const FORMAT_ORDER = ['.psd', '.ai', '.png', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
+
+function collectFormats(assets) {
+  const present = new Set(assets.flatMap((asset) => asset.formats))
+  const rank = (format) => (FORMAT_ORDER.includes(format) ? FORMAT_ORDER.indexOf(format) : FORMAT_ORDER.length)
+  return [...present].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+}
 
 function matchesQuery(asset, query) {
   if (!query) return true
@@ -59,19 +72,22 @@ export default function AssetsLibraryPage() {
   const [category, setCategory] = useState('All')
   const [format, setFormat] = useState(null)
   const [priceType, setPriceType] = useState(null) // 'free' | 'premium' | null
+  const catalogue = useCatalogue()
 
-  const activeCategory = CATEGORIES.find((option) => option.label === category)
+  const categoryOptions = useMemo(() => buildCategoryOptions(catalogue.categories), [catalogue.categories])
+  const formats = useMemo(() => collectFormats(catalogue.assets), [catalogue.assets])
+  const activeCategory = categoryOptions.find((option) => option.label === category) ?? categoryOptions[0]
 
   const visibleAssets = useMemo(
     () =>
-      ASSETS.filter(
+      catalogue.assets.filter(
         (asset) =>
           (!priceType || asset.priceType === priceType) &&
           activeCategory.matches(asset) &&
           (!format || asset.formats.includes(format)) &&
           matchesQuery(asset, query.trim()),
       ),
-    [query, priceType, activeCategory, format],
+    [catalogue.assets, query, priceType, activeCategory, format],
   )
 
   const hasFilters = query.trim() !== '' || priceType !== null || category !== 'All' || format !== null
@@ -150,7 +166,7 @@ export default function AssetsLibraryPage() {
               </Pill>
             ))}
             <span aria-hidden className="mx-1 hidden h-6 w-px self-center bg-neutral-300 sm:block dark:bg-neutral-700" />
-            {CATEGORIES.map(({ label, icon }) => (
+            {categoryOptions.map(({ label, icon }) => (
               <Pill key={label} icon={icon} active={category === label} onClick={() => setCategory(label)}>
                 {label}
               </Pill>
@@ -160,7 +176,7 @@ export default function AssetsLibraryPage() {
             <Pill active={format === null} onClick={() => setFormat(null)}>
               Any
             </Pill>
-            {FORMATS.map((value) => (
+            {formats.map((value) => (
               <Pill
                 key={value}
                 active={format === value}
@@ -174,8 +190,15 @@ export default function AssetsLibraryPage() {
       </section>
 
       <main className="mx-auto max-w-7xl px-6 pb-24 pt-8 lg:px-8">
-        {priceType === 'premium' && <PricingRules activeType={category} onSelectType={setCategory} />}
+        {priceType === 'premium' && (
+          <PricingRules categories={catalogue.categories} activeType={category} onSelectType={setCategory} />
+        )}
 
+        {catalogue.status === 'loading' && <GridSkeleton />}
+        {catalogue.status === 'error' && <CatalogueError error={catalogue.error} onRetry={catalogue.retry} />}
+
+        {catalogue.status === 'ready' && (
+        <>
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             <span className="font-medium text-neutral-900 dark:text-neutral-100">{visibleAssets.length}</span>{' '}
@@ -209,6 +232,8 @@ export default function AssetsLibraryPage() {
               Clear filters
             </button>
           </div>
+        )}
+        </>
         )}
       </main>
     </>
@@ -256,11 +281,11 @@ function Pill({ active, onClick, icon: Icon, children }) {
 
 /**
  * Premium pricing summary, shown only while the Premium filter is on. Built
- * from PRODUCT_TYPES so it can never disagree with the price tags on the cards.
+ * from the categories table so it can never disagree with the price tags.
  * Each tier doubles as a shortcut to that category.
  */
-function PricingRules({ activeType, onSelectType }) {
-  const tiers = Object.entries(PRODUCT_TYPES).filter(([, tier]) => tier.price)
+function PricingRules({ categories, activeType, onSelectType }) {
+  const tiers = categories.filter((tier) => tier.price).map((tier) => [tier.name, tier])
 
   return (
     <section
@@ -277,7 +302,7 @@ function PricingRules({ activeType, onSelectType }) {
 
       <ul className="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-700 dark:bg-neutral-700">
         {tiers.map(([type, { price, allowance }]) => {
-          const Icon = TYPE_ICONS[type]
+          const Icon = TYPE_ICONS[type] ?? Folder
           const isActive = activeType === type
           return (
             <li key={type}>
@@ -347,6 +372,92 @@ async function createCheckoutSession(assetId) {
   }
   if (!data?.url) throw new Error(`Checkout API returned no checkout URL: ${body.slice(0, 120)}`)
   return data.url
+}
+
+/** Hover bar on free cards: fetches a signed link from /api/download and saves the file. */
+function FreeDownloadButton({ asset }) {
+  const [status, setStatus] = useState('idle') // 'idle' | 'loading' | 'error'
+  const [message, setMessage] = useState('')
+
+  const start = async () => {
+    setStatus('loading')
+    try {
+      await downloadAsset(asset.id)
+      setStatus('idle')
+    } catch (error) {
+      console.error('[download] Could not download', asset.id, error)
+      setMessage(error.message)
+      setStatus('error')
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={start}
+      disabled={status === 'loading'}
+      className={`absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 px-3 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-wait ${
+        status === 'idle' ? '' : 'translate-y-0 opacity-100'
+      }`}
+    >
+      {status === 'loading' ? (
+        <>
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+          Preparing download…
+        </>
+      ) : status === 'error' ? (
+        <>
+          <CircleAlert className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+          <span className="text-left text-[11px] leading-snug">
+            {message} <span className="underline underline-offset-2">Try again</span>
+          </span>
+        </>
+      ) : (
+        <>
+          <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+          Download
+        </>
+      )}
+    </button>
+  )
+}
+
+/** Placeholder cards while the catalogue loads from Supabase. */
+function GridSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading assets">
+      <div className="h-5 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+      <div className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 8 }, (_, index) => (
+          <div key={index} className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="aspect-[4/3] animate-pulse bg-neutral-200 dark:bg-neutral-800" />
+            <div className="space-y-2 px-4 py-3">
+              <div className="h-3.5 w-3/4 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+              <div className="h-2.5 w-1/2 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CatalogueError({ error, onRetry }) {
+  return (
+    <div role="alert" className="mx-auto mt-10 max-w-md rounded-lg border border-neutral-200 bg-white p-8 text-center dark:border-neutral-800 dark:bg-neutral-900">
+      <CircleAlert className="mx-auto h-8 w-8 text-neutral-400" strokeWidth={1.5} aria-hidden />
+      <p className="mt-4 font-medium">We couldn't load the asset library</p>
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{error?.message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-6 inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+      >
+        <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        Try again
+      </button>
+    </div>
+  )
 }
 
 /** Starts Stripe Checkout for one asset and redirects; exposes loading / error state. */
@@ -443,19 +554,8 @@ const AssetCard = memo(function AssetCard({ asset }) {
           </div>
         )}
 
-        {asset.priceType === 'premium' ? null : asset.source ? (
-          <a
-            href={asset.source.urls[0]}
-            download={asset.source.filename}
-            onClick={(event) => {
-              event.preventDefault()
-              forceDownload(asset.source.urls, asset.source.filename)
-            }}
-            className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center gap-2 bg-neutral-900/90 py-2.5 text-xs font-medium text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100"
-          >
-            <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            Download
-          </a>
+        {asset.priceType === 'premium' ? null : asset.hasSource ? (
+          <FreeDownloadButton asset={asset} />
         ) : (
           <span className="absolute left-3 top-3 rounded bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
             Coming soon

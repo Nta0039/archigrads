@@ -3,14 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 /**
  * Supabase client.
  *
- * Reads the project credentials from Vite environment variables at build time.
- * Copy `.env.example` to `.env` and paste your project's values (Project
- * Settings -> API). Only variables prefixed with `VITE_` are exposed to the
- * browser, and the anon key is a publishable key that is safe to ship — access
- * to data is enforced by row level security.
+ * Uses VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY when set, otherwise this
+ * project's public URL and publishable key. Both are public by design (every
+ * visitor's browser receives them); row level security decides what they can
+ * do: read the published catalogue, nothing else. The service-role key is
+ * never used here.
  */
-const supabaseUrl = normaliseSupabaseUrl(import.meta.env.VITE_SUPABASE_URL)
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const DEFAULT_URL = 'https://eacxrglkllttghdpbrff.supabase.co'
+const DEFAULT_PUBLISHABLE_KEY = 'sb_publishable_2pUqOcjNCF7DVCh1ghfDlA_lHhCR41o'
+
+const supabaseUrl = normaliseSupabaseUrl(import.meta.env.VITE_SUPABASE_URL) || DEFAULT_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || DEFAULT_PUBLISHABLE_KEY
 
 /**
  * Accepts either the bare project URL (https://ref.supabase.co) or a pasted

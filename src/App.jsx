@@ -79,7 +79,7 @@ export default function App() {
   const user = isLoggedIn ? { name: userName, isAdmin } : null
   const showDashboard = page === 'dashboard' && isAdmin
 
-  let content = <AssetsLibraryPage />
+  let content = <AssetsLibraryPage isAdmin={isLoggedIn && isAdmin} />
   if (page === 'success') content = <SuccessPage onBack={() => navigate('library')} />
   else if (showDashboard) content = <AdminDashboard onBack={() => navigate('library')} live={isPresentationMode} />
 

@@ -1,10 +1,11 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Boxes,
   CircleAlert,
   Crown,
   Download,
+  EyeOff,
   Folder,
   FolderOpen,
   Gift,
@@ -20,7 +21,8 @@ import {
 } from 'lucide-react'
 import { formatAud } from '../lib/catalogue'
 import { downloadAsset } from '../lib/download'
-import { useCatalogue } from '../lib/useCatalogue'
+import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
+import { HideCancelled, setAssetHidden } from '../lib/adminHide'
 
 const TYPE_ICONS = {
   '2D Singles': Image,
@@ -67,12 +69,42 @@ function matchesQuery(asset, query) {
 }
 
 /** The asset library: hero search, category / format filters and the grid. */
-export default function AssetsLibraryPage() {
+export default function AssetsLibraryPage({ isAdmin = false }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
   const [format, setFormat] = useState(null)
   const [priceType, setPriceType] = useState(null) // 'free' | 'premium' | null
   const catalogue = useCatalogue()
+  const [notice, setNotice] = useState(null) // { kind: 'hidden', asset } | { kind: 'error', message }
+
+  // Admin: remove the card at once, then persist is_hidden = true via /api/hide.
+  // If the server refuses (or the passcode prompt is cancelled) the card returns.
+  const handleHideAsset = useCallback(async (asset) => {
+    setLocallyHidden(asset.id, true)
+    setNotice({ kind: 'hidden', asset })
+    try {
+      await setAssetHidden(asset.id, true)
+    } catch (error) {
+      setLocallyHidden(asset.id, false)
+      if (error instanceof HideCancelled) setNotice(null)
+      else {
+        console.error('[hide] Could not hide', asset.id, error)
+        setNotice({ kind: 'error', message: error.message })
+      }
+    }
+  }, [])
+
+  const dismissNotice = useCallback(() => setNotice(null), [])
+
+  const handleUndoHide = useCallback(async (asset) => {
+    setNotice(null)
+    try {
+      await setAssetHidden(asset.id, false)
+      setLocallyHidden(asset.id, false)
+    } catch (error) {
+      if (!(error instanceof HideCancelled)) setNotice({ kind: 'error', message: error.message })
+    }
+  }, [])
 
   const categoryOptions = useMemo(() => buildCategoryOptions(catalogue.categories), [catalogue.categories])
   const formats = useMemo(() => collectFormats(catalogue.assets), [catalogue.assets])
@@ -217,7 +249,7 @@ export default function AssetsLibraryPage() {
 
         <div className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
           {visibleAssets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} />
+            <AssetCard key={asset.id} asset={asset} isAdmin={isAdmin} onHide={handleHideAsset} />
           ))}
         </div>
 
@@ -236,6 +268,8 @@ export default function AssetsLibraryPage() {
         </>
         )}
       </main>
+
+      {notice && <AdminNotice notice={notice} onUndo={handleUndoHide} onDismiss={dismissNotice} />}
     </>
   )
 }
@@ -422,6 +456,43 @@ function FreeDownloadButton({ asset }) {
   )
 }
 
+/** Bottom toast after an admin hides an asset (with Undo), or when hiding fails. */
+function AdminNotice({ notice, onUndo, onDismiss }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, notice.kind === 'hidden' ? 6000 : 9000)
+    return () => clearTimeout(timer)
+  }, [notice, onDismiss])
+
+  return (
+    <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+      <div
+        role="status"
+        className="fade-in flex max-w-lg items-center gap-4 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-white shadow-2xl dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900"
+      >
+        {notice.kind === 'hidden' ? (
+          <>
+            <EyeOff className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} aria-hidden />
+            <span className="min-w-0 truncate">
+              Hidden <span className="font-medium">{notice.asset.title}</span>
+            </span>
+            <button type="button" onClick={() => onUndo(notice.asset)} className="shrink-0 font-semibold underline underline-offset-4">
+              Undo
+            </button>
+          </>
+        ) : (
+          <>
+            <CircleAlert className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} aria-hidden />
+            <span>{notice.message}</span>
+          </>
+        )}
+        <button type="button" onClick={onDismiss} aria-label="Dismiss" className="shrink-0 opacity-60 hover:opacity-100">
+          <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** Placeholder cards while the catalogue loads from Supabase. */
 function GridSkeleton() {
   return (
@@ -531,7 +602,7 @@ function FormatBadge({ format }) {
  * Memoised: asset objects are module constants, so a card only re-renders when
  * it is shown for a different asset, not on every search keystroke.
  */
-const AssetCard = memo(function AssetCard({ asset }) {
+const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide }) {
   const [failed, setFailed] = useState(false)
   const showImage = asset.imageUrl && !failed
   const checkout = useCheckout(asset)
@@ -560,6 +631,19 @@ const AssetCard = memo(function AssetCard({ asset }) {
           <span className="absolute left-3 top-3 rounded bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
             Coming soon
           </span>
+        )}
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => onHide(asset)}
+            aria-label={`Hide ${asset.title} from the library`}
+            title="Hide from the library (admin)"
+            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-neutral-700 shadow-sm backdrop-blur transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:bg-neutral-950/85 dark:text-neutral-200 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-900"
+          >
+            <EyeOff className="h-3 w-3" strokeWidth={2} aria-hidden />
+            Hide
+          </button>
         )}
       </div>
 

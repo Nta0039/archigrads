@@ -3,7 +3,8 @@
  *
  *   table  categories  name, price_cents (null = free), allowance, sort_order
  *   table  assets      slug, title, category, subject, formats, thumbnail_path,
- *                      source_paths, source_filename, is_published, sort_order
+ *                      source_paths, source_filename, is_published, is_hidden,
+ *                      sort_order
  *   bucket thumbnails    public previews (thumbnail_path)
  *   bucket source-files  private source files (source_paths); only the API hands
  *                        out short-lived signed links to them
@@ -16,6 +17,10 @@ export const SOURCE_BUCKET = 'source-files'
 export const formatAud = (amount) => `A$${amount}`
 
 const CATEGORY_COLUMNS = 'name, price_cents, allowance, sort_order'
+// Hidden by an admin (is_hidden = true) means gone from the site, the download
+// API and checkout alike; null counts as visible.
+const NOT_HIDDEN = 'is_hidden.is.null,is_hidden.eq.false'
+
 const ASSET_COLUMNS =
   'slug, title, category, subject, formats, thumbnail_path, source_paths, source_filename, sort_order'
 
@@ -53,7 +58,7 @@ function toAsset(row, category, client) {
 export async function fetchCatalogue(client) {
   const [categoriesResult, assetsResult] = await Promise.all([
     client.from('categories').select(CATEGORY_COLUMNS).order('sort_order'),
-    client.from('assets').select(ASSET_COLUMNS).eq('is_published', true).order('sort_order'),
+    client.from('assets').select(ASSET_COLUMNS).eq('is_published', true).or(NOT_HIDDEN).order('sort_order'),
   ])
   if (categoriesResult.error) throw new Error(`Could not load categories: ${categoriesResult.error.message}`)
   if (assetsResult.error) throw new Error(`Could not load assets: ${assetsResult.error.message}`)
@@ -71,6 +76,7 @@ export async function fetchAsset(client, slug) {
     .select(ASSET_COLUMNS)
     .eq('slug', slug)
     .eq('is_published', true)
+    .or(NOT_HIDDEN)
     .maybeSingle()
   if (error) throw new Error(`Could not load asset: ${error.message}`)
   if (!row) return null

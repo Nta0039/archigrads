@@ -568,7 +568,7 @@ const AssetCard = memo(function AssetCard({ asset }) {
           {asset.title}
         </p>
         <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-500">
-          {asset.type} · {asset.subject}
+          {asset.subject ? `${asset.type} · ${asset.subject}` : asset.type}
         </p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">

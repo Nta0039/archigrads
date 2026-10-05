@@ -5,6 +5,7 @@ import AuthModal from './components/AuthModal'
 import AssetsLibraryPage from './components/AssetsLibraryPage'
 import AdminDashboard from './components/AdminDashboard'
 import SuccessPage from './components/SuccessPage'
+import AIGeneratorPage from './components/AIGeneratorPage'
 
 /**
  * useState that survives a reload of this tab. Used for the mocked login so the
@@ -30,8 +31,10 @@ function useSessionState(key, initial) {
   return [value, setValue]
 }
 
-/** Path-based pages: "/" is the library, "/success" is the Stripe return page. */
-const initialPage = window.location.pathname === '/success' ? 'success' : 'library'
+/** Path-based pages: "/" library, "/studio" AI Studio, "/success" Stripe return page. */
+const PAGE_PATHS = { library: '/', studio: '/studio', dashboard: '/' }
+const initialPage =
+  { '/success': 'success', '/studio': 'studio' }[window.location.pathname.replace(/\/+$/, '')] ?? 'library'
 
 /**
  * App shell. Auth is mocked for the assignment (no backend accounts): the demo
@@ -71,7 +74,8 @@ export default function App() {
   }
 
   const navigate = (next) => {
-    if (window.location.pathname !== '/') window.history.replaceState(null, '', '/')
+    const path = PAGE_PATHS[next] ?? '/'
+    if (window.location.pathname !== path) window.history.replaceState(null, '', path)
     setPage(next === 'dashboard' && !isAdmin ? 'library' : next)
     window.scrollTo(0, 0)
   }
@@ -81,13 +85,14 @@ export default function App() {
 
   let content = <AssetsLibraryPage isAdmin={isLoggedIn && isAdmin} />
   if (page === 'success') content = <SuccessPage onBack={() => navigate('library')} />
+  else if (page === 'studio') content = <AIGeneratorPage onBack={() => navigate('library')} />
   else if (showDashboard) content = <AdminDashboard onBack={() => navigate('library')} live={isPresentationMode} />
 
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:bg-neutral-950 dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
       <SiteHeader
         user={user}
-        page={showDashboard ? 'dashboard' : 'library'}
+        page={showDashboard ? 'dashboard' : page === 'studio' ? 'studio' : 'library'}
         onNavigate={navigate}
         onOpenAuth={setAuthMode}
         onLogout={handleLogout}

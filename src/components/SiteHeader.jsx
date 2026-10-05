@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Presentation } from 'lucide-react'
+import { LayoutDashboard, LogOut, Presentation, Sparkles } from 'lucide-react'
 import ThemeToggle from '../theme/ThemeToggle'
 
 const quietButton =
@@ -33,6 +33,21 @@ export default function SiteHeader({
               className="h-7 w-auto sm:h-8 dark:brightness-0 dark:invert"
             />
             <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('studio')}
+            aria-current={page === 'studio' ? 'page' : undefined}
+            aria-label="AI Studio"
+            className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              page === 'studio'
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-neutral-300 text-neutral-700 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            <span className="hidden sm:inline">AI Studio</span>
           </button>
 
           {user?.isAdmin && (

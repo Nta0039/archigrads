@@ -57,3 +57,9 @@ body {
 .fade-in {
   animation: fadeIn 450ms ease-out both;
 }
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}

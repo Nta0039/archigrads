@@ -46,6 +46,23 @@ function buildPrompt({ prompt, view, style }) {
     .join(', ')
 }
 
+/**
+ * Community models (like the background remover) can only be started by version
+ * id; "owner/name" alone works just for Replicate's official models. Look the
+ * latest version up once per function instance instead of hard-coding a hash.
+ */
+const versionCache = new Map()
+async function latestVersion(replicate, model) {
+  if (!versionCache.has(model)) {
+    const [owner, name] = model.split('/')
+    const info = await replicate.models.get(owner, name)
+    const id = info?.latest_version?.id
+    if (!id) throw new HttpError(502, 'The background removal model is unavailable right now.')
+    versionCache.set(model, id)
+  }
+  return versionCache.get(model)
+}
+
 function getReplicate() {
   const auth = process.env.REPLICATE_API_TOKEN
   if (!auth) throw new HttpError(503, 'AI generation is not configured (missing REPLICATE_API_TOKEN).')
@@ -107,7 +124,7 @@ async function advance(replicate, id) {
     const imageUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
     if (!imageUrl) throw new HttpError(502, 'The AI model returned no image. Please try again.')
     const cutout = await replicate.predictions.create({
-      model: CUTOUT_MODEL,
+      version: await latestVersion(replicate, CUTOUT_MODEL),
       input: { image: imageUrl, format: 'png', background_type: 'rgba', threshold: 0, reverse: false },
     })
     return { id: cutout.id, stage: 'background', status: cutout.status }

@@ -22,7 +22,7 @@ import {
 import { formatAud } from '../lib/catalogue'
 import { downloadAsset } from '../lib/download'
 import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
-import { HideCancelled, setAssetHidden } from '../lib/adminHide'
+import { setAssetHidden } from '../lib/adminHide'
 
 const TYPE_ICONS = {
   '2D Singles': Image,
@@ -78,7 +78,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   const [notice, setNotice] = useState(null) // { kind: 'hidden', asset } | { kind: 'error', message }
 
   // Admin: remove the card at once, then persist is_hidden = true via /api/hide.
-  // If the server refuses (or the passcode prompt is cancelled) the card returns.
+  // No prompt or confirmation; if the request fails the card comes back.
   const handleHideAsset = useCallback(async (asset) => {
     setLocallyHidden(asset.id, true)
     setNotice({ kind: 'hidden', asset })
@@ -86,11 +86,8 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
       await setAssetHidden(asset.id, true)
     } catch (error) {
       setLocallyHidden(asset.id, false)
-      if (error instanceof HideCancelled) setNotice(null)
-      else {
-        console.error('[hide] Could not hide', asset.id, error)
-        setNotice({ kind: 'error', message: error.message })
-      }
+      console.error('[hide] Could not hide', asset.id, error)
+      setNotice({ kind: 'error', message: error.message })
     }
   }, [])
 
@@ -102,7 +99,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
       await setAssetHidden(asset.id, false)
       setLocallyHidden(asset.id, false)
     } catch (error) {
-      if (!(error instanceof HideCancelled)) setNotice({ kind: 'error', message: error.message })
+      setNotice({ kind: 'error', message: error.message })
     }
   }, [])
 

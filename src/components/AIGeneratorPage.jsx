@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Download, LoaderCircle, RotateCcw, Sparkles, Wand2 } from 'lucide-react'
+import { ArrowLeft, CircleAlert, Download, LoaderCircle, RotateCcw, Sparkles, Wand2, X } from 'lucide-react'
+import { forceDownload } from '../lib/download'
 
 /**
- * AI Studio (front end only). Generation is mocked: after ~3 s the browser
- * draws a transparent PNG whose shape follows the prompt (chair, tree, person,
- * vehicle or a generic form), so "Download" gives a real .png file. Swap
- * generateMock() for a call to the AI API later; the UI stays the same.
+ * AI Studio: prompt -> /api/generate-asset (Replicate: FLUX schnell, then
+ * background removal) -> transparent PNG. The API starts a job and the page
+ * polls it, so slow model start-ups never hit a request time limit.
  */
-const STAGES = ['Analyzing prompt…', 'Composing silhouette…', 'Rendering pixels…', 'Removing background…']
-const GENERATION_MS = 3000
-
 const VIEWS = ['Top view', 'Elevation', 'Isometric']
 const STYLES = ['Silhouette', 'Line drawing', 'Soft render']
 const EXAMPLES = [
@@ -18,6 +15,17 @@ const EXAMPLES = [
   'Person walking with a backpack, side view',
   'Compact hatchback car from above',
 ]
+
+const POLL_MS = 1500
+const GIVE_UP_MS = 150_000
+
+// What the loading screen says for each real pipeline stage.
+const PHASES = {
+  sending: { label: 'Sending your prompt…', progress: 8 },
+  queued: { label: 'Waking up the AI model…', hint: 'The first run after a quiet spell can take a little longer.', progress: 18 },
+  image: { label: 'Rendering your asset…', progress: 45 },
+  background: { label: 'Removing the background…', progress: 80 },
+}
 
 // Light chequerboard (in both themes, like Photoshop) to show transparency.
 const CHECKERBOARD = {
@@ -28,140 +36,103 @@ const CHECKERBOARD = {
   backgroundPosition: '0 0, 0 12px, 12px -12px, -12px 0',
 }
 
-function subjectOf(prompt) {
-  const p = prompt.toLowerCase()
-  if (/(chair|sofa|table|desk|bench|bed|stool|furniture|armchair)/.test(p)) return 'furniture'
-  if (/(tree|plant|shrub|bush|palm|vegetation|hedge|flower)/.test(p)) return 'tree'
-  if (/(person|people|man|woman|child|figure|walking|sitting|human|student)/.test(p)) return 'person'
-  if (/(car|bike|bicycle|bus|truck|van|vehicle|scooter|hatchback)/.test(p)) return 'vehicle'
-  return 'generic'
-}
-
-/** Draws the mock result on a transparent 1024² canvas and returns a PNG data URL. */
-function generateMock({ prompt, view, style }) {
-  const size = 1024
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')
-  ctx.translate(size / 2, size / 2)
-
-  const ink = '#262626'
-  if (style === 'Line drawing') {
-    ctx.strokeStyle = ink
-    ctx.lineWidth = 14
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
-  } else if (style === 'Soft render') {
-    const gradient = ctx.createLinearGradient(-300, -300, 300, 300)
-    gradient.addColorStop(0, '#737373')
-    gradient.addColorStop(1, '#171717')
-    ctx.fillStyle = gradient
-    ctx.shadowColor = 'rgba(0,0,0,0.25)'
-    ctx.shadowBlur = 40
-    ctx.shadowOffsetY = 18
-  } else {
-    ctx.fillStyle = ink
-  }
-  const paint = () => (style === 'Line drawing' ? ctx.stroke() : ctx.fill())
-  const roundRect = (x, y, w, h, r) => {
-    ctx.beginPath()
-    ctx.roundRect(x, y, w, h, r)
-    paint()
-  }
-  const circle = (x, y, r) => {
-    ctx.beginPath()
-    ctx.arc(x, y, r, 0, Math.PI * 2)
-    paint()
-  }
-
-  const subject = subjectOf(prompt)
-  if (view === 'Isometric') ctx.transform(1, 0.5, -1, 0.5, 0, 0) // simple axonometric skew
-
-  if (subject === 'furniture') {
-    roundRect(-180, -150, 360, 330, 40) // seat
-    roundRect(-200, -250, 400, 90, 30) // backrest
-    roundRect(-260, -150, 60, 300, 24) // arms
-    roundRect(200, -150, 60, 300, 24)
-  } else if (subject === 'tree') {
-    if (view === 'Top view') {
-      ;[[-90, -60, 190], [110, -40, 170], [0, 110, 200], [-150, 120, 120], [160, 140, 120]].forEach(([x, y, r]) => circle(x, y, r))
-    } else {
-      roundRect(-30, 80, 60, 330, 20) // trunk
-      ;[[-120, -60, 170], [120, -40, 160], [0, -200, 190], [0, 40, 180]].forEach(([x, y, r]) => circle(x, y, r))
-    }
-  } else if (subject === 'person') {
-    circle(0, -330, 70) // head
-    roundRect(-95, -240, 190, 330, 60) // torso
-    roundRect(-85, 70, 70, 330, 35) // legs
-    roundRect(15, 70, 70, 330, 35)
-  } else if (subject === 'vehicle') {
-    roundRect(-200, -380, 400, 760, 120) // body
-    ctx.save()
-    ctx.globalCompositeOperation = 'destination-out' // windows punched through
-    ctx.fillStyle = '#000'
-    ctx.beginPath()
-    ctx.roundRect(-150, -230, 300, 150, 40)
-    ctx.roundRect(-150, 120, 300, 120, 40)
-    ctx.fill()
-    ctx.restore()
-  } else {
-    roundRect(-260, -260, 520, 520, 60)
-    ctx.save()
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.beginPath()
-    ctx.arc(0, 0, 170, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
-  }
-
-  return canvas.toDataURL('image/png')
-}
-
 function fileNameFor(prompt) {
   const slug = prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48)
   return `archigrads-ai-${slug || 'asset'}.png`
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** One call to the API; every failure becomes an Error with a readable message. */
+async function callApi(url, options) {
+  let response
+  try {
+    response = await fetch(url, options)
+  } catch (networkError) {
+    throw new Error('Could not reach the server. Check your connection and try again.', { cause: networkError })
+  }
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    if (data?.error) throw new Error(data.error)
+    if (response.status === 404) {
+      throw new Error('The AI API is not available here. Use the live site or `vercel dev`; `npm run dev` has no /api.')
+    }
+    throw new Error(`The AI service returned an error (HTTP ${response.status}). Please try again.`)
+  }
+  return data
 }
 
 export default function AIGeneratorPage({ onBack }) {
   const [prompt, setPrompt] = useState('')
   const [view, setView] = useState(VIEWS[0])
   const [style, setStyle] = useState(STYLES[0])
-  const [status, setStatus] = useState('idle') // 'idle' | 'generating' | 'done'
-  const [stage, setStage] = useState(0)
+  const [status, setStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'error'
+  const [phase, setPhase] = useState('sending')
+  const [startedAt, setStartedAt] = useState(0)
   const [result, setResult] = useState(null) // { src, fileName, prompt, view, style }
-  const timers = useRef([])
+  const [error, setError] = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const runRef = useRef(0) // increments per run; an older run stops when it changes
   const inputRef = useRef(null)
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  useEffect(() => () => {
+    runRef.current += 1 // stop polling when leaving the page
+  }, [])
 
   const canGenerate = prompt.trim().length >= 3 && status !== 'generating'
 
-  const generate = () => {
+  const generate = async () => {
     if (!canGenerate) return
+    const run = ++runRef.current
     const request = { prompt: prompt.trim(), view, style }
-    timers.current.forEach(clearTimeout)
+    const isCurrent = () => runRef.current === run
+
     setStatus('generating')
-    setStage(0)
+    setPhase('sending')
+    setStartedAt(Date.now())
     setResult(null)
-    timers.current = [
-      ...STAGES.slice(1).map((_, index) =>
-        setTimeout(() => setStage(index + 1), ((index + 1) * GENERATION_MS) / STAGES.length),
-      ),
-      setTimeout(() => {
-        setResult({ ...request, src: generateMock(request), fileName: fileNameFor(request.prompt) })
-        setStatus('done')
-      }, GENERATION_MS),
-    ]
+    setError('')
+
+    try {
+      let job = await callApi('/api/generate-asset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      })
+      const deadline = Date.now() + GIVE_UP_MS
+
+      while (isCurrent()) {
+        if (job.stage === 'done') {
+          setResult({ ...request, src: job.url, fileName: fileNameFor(request.prompt) })
+          setStatus('done')
+          return
+        }
+        setPhase(job.stage === 'image' && job.status === 'starting' ? 'queued' : job.stage)
+        if (Date.now() > deadline) throw new Error('This is taking longer than usual. Please try again in a minute.')
+        await sleep(POLL_MS)
+        if (!isCurrent()) return
+        job = await callApi(`/api/generate-asset?id=${encodeURIComponent(job.id)}`)
+      }
+    } catch (failure) {
+      if (!isCurrent()) return
+      console.error('[ai-studio] Generation failed:', failure)
+      setError(failure.message)
+      setStatus('error')
+    }
   }
 
-  const download = () => {
-    const link = document.createElement('a')
-    link.href = result.src
-    link.download = result.fileName
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
+  const cancel = () => {
+    runRef.current += 1
+    setStatus(result ? 'done' : 'idle')
+  }
+
+  const download = async () => {
+    setDownloading(true)
+    try {
+      await forceDownload([result.src], result.fileName)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -255,24 +226,19 @@ export default function AIGeneratorPage({ onBack }) {
         </div>
       )}
 
-      {/* Generating / result */}
+      {/* Generating / result / error */}
       {status !== 'idle' && (
         <section aria-live="polite" className="mx-auto mt-10 max-w-3xl">
           <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
             <div className="relative aspect-square sm:aspect-[4/3]" style={CHECKERBOARD}>
-              {status === 'generating' ? (
-                <GeneratingState stage={stage} />
-              ) : (
-                <>
-                  <img
-                    src={result.src}
-                    alt={`Generated asset: ${result.prompt}`}
-                    className="fade-in absolute inset-0 h-full w-full object-contain p-8"
-                  />
-                  <span className="absolute left-3 top-3 rounded bg-neutral-900/85 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-white">
-                    Mock preview
-                  </span>
-                </>
+              {status === 'generating' && <GeneratingState phase={phase} startedAt={startedAt} onCancel={cancel} />}
+              {status === 'error' && <ErrorState message={error} onRetry={generate} />}
+              {status === 'done' && (
+                <img
+                  src={result.src}
+                  alt={`Generated asset: ${result.prompt}`}
+                  className="fade-in absolute inset-0 h-full w-full object-contain p-6"
+                />
               )}
             </div>
 
@@ -283,7 +249,7 @@ export default function AIGeneratorPage({ onBack }) {
                     {result.prompt}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    {result.view} · {result.style} · Transparent PNG · 1024 × 1024
+                    {result.view} · {result.style} · Transparent PNG
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -298,40 +264,87 @@ export default function AIGeneratorPage({ onBack }) {
                   <button
                     type="button"
                     onClick={download}
-                    className="inline-flex items-center gap-2 rounded-md bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                    disabled={downloading}
+                    className="inline-flex items-center gap-2 rounded-md bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
                   >
-                    <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    {downloading ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
+                    ) : (
+                      <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    )}
                     Download PNG
                   </button>
                 </div>
               </div>
             )}
           </div>
+          {status === 'done' && (
+            <p className="mt-3 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+              Generated with Replicate. The image link expires after about an hour, so download it to keep it.
+            </p>
+          )}
         </section>
       )}
     </main>
   )
 }
 
-function GeneratingState({ stage }) {
+function GeneratingState({ phase, startedAt, onCancel }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  const seconds = Math.max(0, Math.round((now - startedAt) / 1000))
+  const { label, hint, progress } = PHASES[phase] ?? PHASES.sending
+
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm dark:bg-neutral-950/70">
-      {/* Shimmering silhouette placeholder */}
-      <div className="relative h-32 w-32 overflow-hidden rounded-2xl bg-neutral-200 dark:bg-neutral-800">
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/75 px-6 text-center backdrop-blur-sm dark:bg-neutral-950/75">
+      {/* Shimmering placeholder tile */}
+      <div className="relative h-28 w-28 overflow-hidden rounded-2xl bg-neutral-200 dark:bg-neutral-800">
         <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" />
       </div>
-      <p key={stage} className="fade-in mt-8 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-        {STAGES[stage]}
+      <p key={phase} className="fade-in mt-8 text-sm font-medium text-neutral-800 dark:text-neutral-100">
+        {label}
       </p>
-      <div className="mt-4 h-1 w-48 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+      <div className="mt-4 h-1 w-56 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
         <div
-          className="h-full rounded-full bg-neutral-900 transition-[width] duration-700 ease-out dark:bg-neutral-100"
-          style={{ width: `${((stage + 1) / STAGES.length) * 100}%` }}
+          className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-out dark:bg-neutral-100"
+          style={{ width: `${progress}%` }}
         />
       </div>
-      <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
-        Step {stage + 1} of {STAGES.length}
+      <p className="mt-3 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+        {seconds}s · usually 10–20 seconds
       </p>
+      {hint && <p className="mt-1 max-w-xs text-xs text-neutral-400 dark:text-neutral-500">{hint}</p>}
+      <button
+        type="button"
+        onClick={onCancel}
+        className="mt-6 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+      >
+        <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        Cancel
+      </button>
+    </div>
+  )
+}
+
+function ErrorState({ message, onRetry }) {
+  return (
+    <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center bg-white/85 px-6 text-center backdrop-blur-sm dark:bg-neutral-950/85">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <CircleAlert className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+      </span>
+      <p className="mt-5 font-medium text-neutral-900 dark:text-neutral-100">We couldn't generate this asset</p>
+      <p className="mt-2 max-w-sm text-sm text-neutral-600 dark:text-neutral-400">{message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-6 inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-100"
+      >
+        <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        Try again
+      </button>
     </div>
   )
 }

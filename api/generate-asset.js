@@ -55,6 +55,8 @@ function getReplicate() {
 /** Turns Replicate API failures into messages the page can show. */
 function toHttpError(error) {
   const status = error?.response?.status
+  // Replicate's own explanation (e.g. billing or permission detail) for the logs.
+  if (status) console.error(`[replicate] HTTP ${status}: ${String(error.message).slice(0, 500)}`)
   if (status === 402) {
     return new HttpError(402, 'The AI credit for this site has run out. Please try again later.')
   }

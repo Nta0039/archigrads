@@ -25,6 +25,7 @@ const PHASES = {
   queued: { label: 'Waking up the AI model…', hint: 'The first run after a quiet spell can take a little longer.', progress: 18 },
   image: { label: 'Rendering your asset…', progress: 45 },
   background: { label: 'Removing the background…', progress: 80 },
+  finishing: { label: 'Trimming the edges…', progress: 95 },
 }
 
 // Light chequerboard (in both themes, like Photoshop) to show transparency.
@@ -42,6 +43,55 @@ function fileNameFor(prompt) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Crops the transparent margin around the generated object (plus a little
+ * padding) so the PNG drops straight into a drawing. The result lives in the
+ * browser as a blob, so Download keeps working after Replicate's link expires.
+ * Falls back to the original image if anything goes wrong.
+ */
+async function trimTransparent(url) {
+  try {
+    const blob = await (await fetch(url)).blob()
+    const bitmap = await createImageBitmap(blob)
+    const { width, height } = bitmap
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    ctx.drawImage(bitmap, 0, 0)
+    const alpha = ctx.getImageData(0, 0, width, height).data
+
+    let minX = width, minY = height, maxX = -1, maxY = -1
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (alpha[(y * width + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x
+          if (x > maxX) maxX = x
+          if (y < minY) minY = y
+          if (y > maxY) maxY = y
+        }
+      }
+    }
+    if (maxX < 0) throw new Error('empty image')
+
+    const pad = Math.max(8, Math.round(Math.max(maxX - minX, maxY - minY) * 0.04))
+    const x0 = Math.max(0, minX - pad)
+    const y0 = Math.max(0, minY - pad)
+    const w = Math.min(width, maxX + pad + 1) - x0
+    const h = Math.min(height, maxY + pad + 1) - y0
+    const out = document.createElement('canvas')
+    out.width = w
+    out.height = h
+    out.getContext('2d').drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
+    const trimmed = await new Promise((resolve) => out.toBlob(resolve, 'image/png'))
+    if (!trimmed) throw new Error('could not encode PNG')
+    return { src: URL.createObjectURL(trimmed), width: w, height: h, local: true }
+  } catch (error) {
+    console.warn('[ai-studio] Could not trim the image; using it as returned.', error)
+    return { src: url, width: null, height: null, local: false }
+  }
+}
 
 /** One call to the API; every failure becomes an Error with a readable message. */
 async function callApi(url, options) {
@@ -103,7 +153,13 @@ export default function AIGeneratorPage({ onBack }) {
 
       while (isCurrent()) {
         if (job.stage === 'done') {
-          setResult({ ...request, src: job.url, fileName: fileNameFor(request.prompt) })
+          setPhase('finishing')
+          const image = await trimTransparent(job.url)
+          if (!isCurrent()) return
+          setResult((previous) => {
+            if (previous?.local) URL.revokeObjectURL(previous.src) // free the last blob
+            return { ...request, ...image, fileName: fileNameFor(request.prompt) }
+          })
           setStatus('done')
           return
         }
@@ -250,6 +306,7 @@ export default function AIGeneratorPage({ onBack }) {
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {result.view} · {result.style} · Transparent PNG
+                    {result.width ? ` · ${result.width} × ${result.height} px` : ''}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -280,7 +337,7 @@ export default function AIGeneratorPage({ onBack }) {
           </div>
           {status === 'done' && (
             <p className="mt-3 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
-              Generated with Replicate. The image link expires after about an hour, so download it to keep it.
+              Generated with Replicate and trimmed to the object. Download it to keep a copy.
             </p>
           )}
         </section>

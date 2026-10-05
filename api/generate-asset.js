@@ -39,7 +39,7 @@ function buildPrompt({ prompt, view, style }) {
     STYLE_HINTS[style] ?? '',
     // Hidden prompt engineering: one isolated object on white so the
     // background remover gets a clean cut-out.
-    'single isolated object, centered, isolated on a pure white background',
+    'single isolated object, centered and filling most of the frame, isolated on a pure white background',
     'architectural graphic style, flat lighting, crisp edges, no text, no watermark, no ground shadow',
   ]
     .filter(Boolean)

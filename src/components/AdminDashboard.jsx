@@ -18,7 +18,7 @@ import { clearSales, useSales } from '../lib/sales'
  * dashboard shows the honest empty state (zeros, no activity). The admin-only
  * Presentation Mode toggle (`live`) fills it with the sample data below.
  *
- * Real Stripe test-mode purchases (recorded by the success page in
+ * Real Stripe purchases (recorded by the success page in
  * localStorage) are always added on top, in both modes, and update live — even
  * from another tab — so a checkout during the presentation shows up here.
  */
@@ -107,7 +107,7 @@ export default function AdminDashboard({ onBack, live }) {
   const salesRevenue = sales.reduce((total, sale) => total + (Number(sale.amount) || 0), 0)
   const todaysSalesRevenue = sales.filter((sale) => isToday(sale.at)).reduce((t, s) => t + (Number(s.amount) || 0), 0)
   const salesNote = sales.length
-    ? { change: `+${sales.length}`, note: 'via Stripe test checkout' }
+    ? { change: `+${sales.length}`, note: 'via Stripe checkout' }
     : null
 
   const metrics = [
@@ -126,7 +126,7 @@ export default function AdminDashboard({ onBack, live }) {
       label: 'Total Revenue',
       value: (live ? SAMPLE.revenue : 0) + salesRevenue,
       format: formatAud,
-      ...(sales.length ? { change: `+${formatAud(salesRevenue)}`, note: 'via Stripe test checkout' } : { change: '+A$220', note: 'this week' }),
+      ...(sales.length ? { change: `+${formatAud(salesRevenue)}`, note: 'via Stripe checkout' } : { change: '+A$220', note: 'this week' }),
       hasData: live || sales.length > 0,
       icon: DollarSign,
     },
@@ -158,12 +158,12 @@ export default function AdminDashboard({ onBack, live }) {
           {sales.length > 0 && (
             <>
               <span className="rounded border border-neutral-900 bg-neutral-900 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900">
-                {sales.length} Stripe test {sales.length === 1 ? 'sale' : 'sales'}
+                {sales.length} Stripe {sales.length === 1 ? 'sale' : 'sales'}
               </span>
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('Clear the recorded Stripe test sales from this browser?')) clearSales()
+                  if (window.confirm('Clear the recorded Stripe sales from this browser? (Stripe itself keeps them.)')) clearSales()
                 }}
                 className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
               >
@@ -218,7 +218,7 @@ function MetricCard({ label, value, change, note, icon: Icon, hasData, format = 
   )
 }
 
-/** 14-day bar chart with a Page views / Revenue switch. Revenue includes today's real test sales. */
+/** 14-day bar chart with a Page views / Revenue switch. Revenue includes today's real sales. */
 function TrendChart({ live, pageViews, revenue }) {
   const [series, setSeries] = useState('pageViews')
   const isRevenue = series === 'revenue'
@@ -339,7 +339,7 @@ function RecentActivity({ live, sales }) {
       key: sale.sessionId,
       icon: ShoppingBag,
       text: `Premium purchase · ${sale.title}`,
-      who: sale.email || 'Stripe test checkout',
+      who: sale.email || (sale.livemode ? 'Stripe checkout' : 'Stripe test checkout'),
       time: timeAgo(sale.at),
       real: true,
     })),

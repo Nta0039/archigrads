@@ -6,7 +6,7 @@ import { recordSale } from '../lib/sales'
 import FeedbackModal from './FeedbackModal'
 
 /**
- * Stripe redirects here after checkout (/success?session_id=cs_test_...). The
+ * Stripe redirects here after checkout (/success?session_id=cs_...). The
  * page asks /api/session whether the session was really paid, records the sale
  * for the admin dashboard, and offers the files via signed links from
  * /api/download (which re-checks the payment for the private file).
@@ -43,6 +43,7 @@ export default function SuccessPage({ onBack }) {
           title: session.title,
           amount: session.amount,
           email: session.email,
+          livemode: session.livemode,
         })
         setState({ status: 'paid', session })
       })
@@ -152,7 +153,9 @@ export default function SuccessPage({ onBack }) {
               </p>
             )}
             <p className="mt-3 text-[11px] text-neutral-400 dark:text-neutral-500">
-              Stripe test mode: no real money was charged. Files are preview placeholders.
+              {state.session.livemode
+                ? 'Paid securely with Stripe. Your card statement will show this purchase.'
+                : 'Stripe test mode: no real money was charged.'}
             </p>
           </div>
         )}

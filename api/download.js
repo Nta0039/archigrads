@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from './_supabase.js'
 const LINK_LIFETIME_SECONDS = 300
 
 /**
- * GET /api/download?asset=<slug>[&session_id=cs_test_...]  ->  { filename, urls }
+ * GET /api/download?asset=<slug>[&session_id=cs_...]  ->  { filename, urls }
  *
  * Source files live in the private "source-files" bucket. This returns signed
  * links that expire after five minutes:
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
     if (asset.priceType === 'premium') {
       const sessionId = typeof req.query.session_id === 'string' ? req.query.session_id : ''
-      if (!/^cs_test_[A-Za-z0-9]+$/.test(sessionId)) {
+      if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) {
         throw new HttpError(402, 'This is a premium asset. Purchase it to download.')
       }
       let session

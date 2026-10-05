@@ -6,8 +6,10 @@ import { getSupabaseAdmin } from './_supabase.js'
  * POST /api/checkout  { assetId }  ->  { url }
  *
  * Creates a Stripe Checkout Session for one premium asset. The price is read
- * here from the Supabase `categories` table, never taken from the request, so a
- * visitor cannot change what they pay.
+ * here from Supabase (the asset's own price_cents, else its category's price),
+ * never taken from the request, so a visitor cannot change what they pay.
+ * Redirect URLs use the domain the visitor is on (production, preview or a
+ * custom domain); test vs live mode comes only from STRIPE_SECRET_KEY.
  */
 export default async function handler(req, res) {
   try {
@@ -33,7 +35,7 @@ export default async function handler(req, res) {
             unit_amount: Math.round(asset.price * 100),
             product_data: {
               name: asset.title,
-              description: `${asset.type} · ${asset.allowance}`,
+              description: asset.allowance ? `${asset.type} · ${asset.allowance}` : asset.type,
             },
           },
         },

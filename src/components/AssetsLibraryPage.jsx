@@ -569,7 +569,7 @@ function PriceTag({ asset, checkout }) {
       onClick={checkout.start}
       disabled={loading}
       aria-label={`Buy ${asset.title} for ${formatAud(asset.price)} (${asset.allowance})`}
-      title="Buy with Stripe (test mode)"
+      title="Buy securely with Stripe"
       className="shrink-0 rounded-md bg-neutral-900 px-2.5 py-1.5 text-right text-white shadow-sm transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300 dark:focus-visible:outline-neutral-100"
     >
       <span className="flex items-center justify-end gap-1 text-sm font-semibold leading-none tabular-nums">

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * Completed Stripe test-mode sales, kept in this browser's localStorage so the
+ * Completed Stripe sales (test or live), kept in this browser's localStorage so the
  * admin dashboard can show a purchase made during the presentation. There is no
  * database: sales live only in the browser that completed the checkout.
  *

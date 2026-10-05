@@ -3,7 +3,7 @@ import { HttpError, getStripe, sendError } from './_stripe.js'
 import { getSupabaseAdmin } from './_supabase.js'
 
 /**
- * GET /api/session?session_id=cs_test_...
+ * GET /api/session?session_id=cs_test_... or cs_live_...
  *
  * Lets the success page confirm with Stripe that a session was actually paid
  * before it records a sale, so visiting /success directly cannot fake one.
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
 
     const sessionId = typeof req.query.session_id === 'string' ? req.query.session_id : ''
-    if (!/^cs_test_[A-Za-z0-9]+$/.test(sessionId)) throw new HttpError(400, 'Invalid session id.')
+    if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) throw new HttpError(400, 'Invalid session id.')
 
     let session
     try {
@@ -38,6 +38,7 @@ export default async function handler(req, res) {
       amount: (session.amount_total ?? 0) / 100,
       currency: (session.currency ?? 'aud').toUpperCase(),
       email: session.customer_details?.email ?? null,
+      livemode: Boolean(session.livemode),
     })
   } catch (error) {
     sendError(res, error)

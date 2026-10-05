@@ -4,16 +4,17 @@ import Stripe from 'stripe'
  * Shared Stripe client for the API routes (files starting with `_` are not
  * exposed as routes by Vercel).
  *
- * This project is a university demo, so it only ever talks to Stripe in TEST
- * mode: a live secret key is refused outright rather than risking real charges.
+ * Test or live mode is decided only by which secret key is configured in
+ * Vercel (sk_test_... or sk_live_...); nothing in the code forces either.
  */
 export function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) {
     throw new HttpError(500, 'Stripe is not configured (missing STRIPE_SECRET_KEY).')
   }
-  if (!/^(sk|rk)_test_/.test(key)) {
-    throw new HttpError(500, 'Refusing to run: STRIPE_SECRET_KEY is not a test-mode key.')
+  if (!/^(sk|rk)_(test|live)_/.test(key)) {
+    // Catches the common mistake of pasting the publishable key (pk_...).
+    throw new HttpError(500, 'STRIPE_SECRET_KEY must be a secret key (sk_test_... or sk_live_...).')
   }
   return new Stripe(key)
 }

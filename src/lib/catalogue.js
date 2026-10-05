@@ -3,7 +3,8 @@
  *
  *   table  categories  name, price_cents (null = free), allowance, sort_order
  *   table  assets      slug, title, category, subject, formats, thumbnail_path,
- *                      source_paths, source_filename, is_published, is_hidden,
+ *                      source_paths, source_filename, price_cents (optional
+ *                      per-asset override), is_published, is_hidden,
  *                      sort_order
  *   bucket thumbnails    public previews (thumbnail_path)
  *   bucket source-files  private source files (source_paths); only the API hands
@@ -22,7 +23,7 @@ const CATEGORY_COLUMNS = 'name, price_cents, allowance, sort_order'
 const NOT_HIDDEN = 'is_hidden.is.null,is_hidden.eq.false'
 
 const ASSET_COLUMNS =
-  'slug, title, category, subject, formats, thumbnail_path, source_paths, source_filename, sort_order'
+  'slug, title, category, subject, formats, thumbnail_path, source_paths, source_filename, price_cents, sort_order'
 
 function toCategory(row) {
   return {
@@ -34,7 +35,8 @@ function toCategory(row) {
 
 /** Database row -> the asset shape the UI uses. */
 function toAsset(row, category, client) {
-  const price = category?.price ?? null
+  // An asset's own price_cents (e.g. the A$1 live demo) overrides its category.
+  const price = row.price_cents ? row.price_cents / 100 : (category?.price ?? null)
   return {
     id: row.slug,
     title: row.title,
@@ -43,7 +45,7 @@ function toAsset(row, category, client) {
     formats: row.formats ?? [],
     priceType: price ? 'premium' : 'free',
     price,
-    allowance: category?.allowance ?? null,
+    allowance: category?.allowance ?? (row.price_cents ? 'Single purchase' : null),
     imageUrl: row.thumbnail_path
       ? client.storage.from(THUMBNAIL_BUCKET).getPublicUrl(row.thumbnail_path).data.publicUrl
       : null,

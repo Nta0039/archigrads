@@ -9,7 +9,9 @@ import { HttpError, sendError } from './_stripe.js'
  *                        2D Line Drawing: Recraft V3 vector line art (clean
  *                        Make2D lines, returned as SVG and cut out in the
  *                        browser; Flux cannot draw clean CAD lines).
- *   Replicate (Standard) black-forest-labs/flux-schnell -> 851-labs/background-remover
+ *   Replicate (Standard) black-forest-labs/flux-schnell -> bria/remove-background
+ *                        (Bria RMBG 2.0 semantic segmentation, same as the Fal
+ *                        engine, so white surfaces inside the object stay opaque)
  *
  * Nothing here waits for a model to finish (that could exceed Vercel's
  * function time limit). The four jobs are started in parallel and the page
@@ -37,7 +39,7 @@ const STEPS = {
   'fal-recraft': { provider: 'fal', stage: 'image', endpoint: 'fal-ai/recraft/v3/text-to-image', next: 'fal-bria' },
   'fal-bria': { provider: 'fal', stage: 'background', endpoint: 'fal-ai/bria/background/remove' },
   'rep-flux': { provider: 'replicate', stage: 'image', model: 'black-forest-labs/flux-schnell', next: 'rep-cutout' },
-  'rep-cutout': { provider: 'replicate', stage: 'background', model: '851-labs/background-remover' },
+  'rep-cutout': { provider: 'replicate', stage: 'background', model: 'bria/remove-background' },
 }
 
 /** Camera angle (Rhino-style viewports). Values must match the AI Studio controls. */
@@ -68,7 +70,7 @@ const RENDER_STYLES = {
     'White Model': {
       hint: 'pure white architectural clay model, ambient occlusion, untextured, solid white monochrome plaster, soft studio lighting',
       // A white model on a white backdrop is the hardest case for any cut-out.
-      backdrop: 'plain light grey studio background',
+      backdrop: 'light grey background',
     },
   },
   '2D': {
@@ -89,7 +91,8 @@ const RENDER_STYLES = {
 // "Transparent background" enforcers: image models cannot draw transparency,
 // so they get one isolated object on a plain backdrop that the cut-out removes.
 const framing = (backdrop) =>
-  `single isolated solid opaque object, centered and filling most of the frame, on a ${backdrop}, ` +
+  `single isolated solid opaque foreground object, highly detailed, centered and filling most of the frame, ` +
+  `isolated on a simple solid color ${backdrop}, ` +
   'no ground shadow, no reflection, no scenery, no text, no watermark, no border'
 
 /** Validates prompt, engine and the four selections (400 for anything the UI cannot produce). */
@@ -115,7 +118,7 @@ function readRequest(body) {
     `${angle.lead(angleDetail)} ${subject}`,
     angle.hint(angleDetail),
     render.hint,
-    framing(render.backdrop ?? 'plain pure white background'),
+    framing(render.backdrop ?? 'pure white background'),
   ].join(', ')
   return { engine, render, fullPrompt }
 }
@@ -134,19 +137,6 @@ function getReplicate() {
   return new Replicate({ auth })
 }
 
-// Community Replicate models must be started by version id ("owner/name" alone
-// only works for official models). Looked up once per function instance.
-const versionCache = new Map()
-async function replicateVersion(replicate, model) {
-  if (!versionCache.has(model)) {
-    const [owner, name] = model.split('/')
-    const id = (await replicate.models.get(owner, name))?.latest_version?.id
-    if (!id) throw new HttpError(502, 'The background removal model is unavailable right now.')
-    versionCache.set(model, id)
-  }
-  return versionCache.get(model)
-}
-
 /** Starts one step; returns the provider's request id. */
 async function startStep(stepName, input) {
   const step = STEPS[stepName]
@@ -154,11 +144,8 @@ async function startStep(stepName, input) {
     const { request_id } = await getFal().queue.submit(step.endpoint, { input })
     return request_id
   }
-  const replicate = getReplicate()
-  const prediction =
-    stepName === 'rep-cutout'
-      ? await replicate.predictions.create({ version: await replicateVersion(replicate, step.model), input })
-      : await replicate.predictions.create({ model: step.model, input })
+  // Both Replicate models are official, so they start by name (no version id).
+  const prediction = await getReplicate().predictions.create({ model: step.model, input })
   return prediction.id
 }
 
@@ -193,7 +180,8 @@ async function readStep(stepName, requestId, outputIndex = 0) {
 
 function cutoutInput(stepName, imageUrl) {
   if (stepName === 'fal-bria') return { image_url: imageUrl }
-  return { image: imageUrl, format: 'png', background_type: 'rgba', threshold: 0, reverse: false }
+  // Returns an RGBA PNG; the RMBG mask keeps white areas inside the object opaque.
+  return { image_url: imageUrl, preserve_alpha: true, content_moderation: false }
 }
 
 /** Provider failures -> messages the page can show. */

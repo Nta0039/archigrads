@@ -16,6 +16,7 @@ import {
   RotateCcw,
   ScrollText,
   Search,
+  Sparkles,
   ShoppingBag,
   X,
 } from 'lucide-react'
@@ -31,6 +32,7 @@ const TYPE_ICONS = {
   'BIM Families': Boxes,
   'Detailed Models': Box,
   'Project Proposals': FolderOpen,
+  'AI Generated': Sparkles,
 }
 
 /** Category pills come from the categories table; unknown new ones get a folder icon. */

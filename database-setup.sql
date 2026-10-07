@@ -21,7 +21,8 @@ insert into public.categories (name, folder, price_cents, allowance, sort_order)
   ('Code & Standards', 'code-and-standards', 2000, '20 downloads', 3),
   ('BIM Families', 'bim-families', 1000, '20 downloads', 4),
   ('Detailed Models', 'detailed-models', 2000, '10 downloads', 5),
-  ('Project Proposals', 'project-proposals', 1000, 'Per project', 6)
+  ('Project Proposals', 'project-proposals', 1000, 'Per project', 6),
+  ('AI Generated', 'ai-generated', null, null, 7)  -- community uploads from AI Studio (free)
 on conflict (name) do update set
   folder = excluded.folder,
   price_cents = excluded.price_cents,

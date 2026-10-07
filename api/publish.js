@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from './_supabase.js'
  * POST /api/publish  { title, image: <base64 PNG>, styleLabel? }  ->  { slug, title }
  *
  * Publishes an AI Studio result to the public library: the PNG goes into both
- * the "thumbnails" and "source-files" buckets and a free "2D Singles" row is
+ * the "thumbnails" and "source-files" buckets and a free "AI Generated" row is
  * added to public.assets.
  *
  * Done here with the service-role key rather than from the browser, so the
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const { error: insertError } = await supabase.from('assets').insert({
       slug,
       title,
-      category: '2D Singles', // the free category
+      category: 'AI Generated', // free community category, separate from the official assets
       subject: subject ? `AI · ${subject}` : 'AI generated',
       formats: ['.png'],
       thumbnail_path: path,

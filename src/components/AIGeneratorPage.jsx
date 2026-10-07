@@ -3,7 +3,7 @@ import { ArrowLeft, CircleAlert, Download, LoaderCircle, RotateCcw, Sparkles, Wa
 import { forceDownload } from '../lib/download'
 
 /**
- * AI Studio: prompt -> /api/generate-asset (Replicate: FLUX schnell, then
+ * AI Studio: prompt -> /api/generate-asset (Fal.ai: Recraft V3, then BiRefNet
  * background removal) -> transparent PNG. The API starts a job and the page
  * polls it, so slow model start-ups never hit a request time limit.
  */
@@ -47,7 +47,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 /**
  * Crops the transparent margin around the generated object (plus a little
  * padding) so the PNG drops straight into a drawing. The result lives in the
- * browser as a blob, so Download keeps working after Replicate's link expires.
+ * browser as a blob, so Download keeps working after the AI provider's link expires.
  * Falls back to the original image if anything goes wrong.
  */
 async function trimTransparent(url) {
@@ -337,7 +337,7 @@ export default function AIGeneratorPage({ onBack }) {
           </div>
           {status === 'done' && (
             <p className="mt-3 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
-              Generated with Replicate and trimmed to the object. Download it to keep a copy.
+              Generated with Fal.ai (Recraft V3) and trimmed to the object. Download it to keep a copy.
             </p>
           )}
         </section>

@@ -10,11 +10,11 @@
     "preview": "vite preview --port 4173"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.10.1",
     "@supabase/supabase-js": "^2.117.2",
     "lucide-react": "^1.48.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "replicate": "^1.4.0",
     "stripe": "^23.0.0"
   },
   "devDependencies": {

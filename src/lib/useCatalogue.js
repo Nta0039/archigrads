@@ -16,6 +16,11 @@ function loadCatalogue() {
   return pending
 }
 
+/** Forget the cached catalogue (e.g. after publishing) so the next load refetches it. */
+export function invalidateCatalogue() {
+  pending = null
+}
+
 // Assets an admin hid during this visit. The database is the source of truth
 // (hidden rows are never fetched); this set just removes them from the
 // already-loaded list immediately, without a refetch.

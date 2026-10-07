@@ -1,12 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Camera, CircleAlert, Download, Layers, LoaderCircle, RotateCcw, Sparkles, Wand2, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  CircleAlert,
+  Cpu,
+  Download,
+  Layers,
+  LoaderCircle,
+  RotateCcw,
+  Sparkles,
+  Upload,
+  Wand2,
+  X,
+} from 'lucide-react'
 import { forceDownload } from '../lib/download'
+import { invalidateCatalogue } from '../lib/useCatalogue'
 
 /**
- * AI Studio: prompt -> /api/generate-asset (Fal.ai: Recraft V3, then BiRefNet
- * background removal) -> transparent PNG. The API starts a job and the page
- * polls it, so slow model start-ups never hit a request time limit.
+ * AI Studio: prompt -> /api/generate-asset -> four transparent PNG variations
+ * (2 x 2 grid) on the chosen engine. The API starts four jobs in parallel and
+ * the page polls them, so slow model start-ups never hit a request time limit.
+ * Any result can be published to the public library via /api/publish.
  */
+const IMAGES_PER_RUN = 4
+const ENGINES = [
+  { value: 'fal', label: 'Fal.ai (Premium)' },
+  { value: 'replicate', label: 'Replicate (Standard)' },
+]
 // Cascading viewport / render controls. Values are sent as-is to
 // /api/generate-asset, which validates them and maps them to model settings.
 const ANGLES = [
@@ -190,16 +211,16 @@ async function callApi(url, options) {
 
 export default function AIGeneratorPage({ onBack }) {
   const [prompt, setPrompt] = useState('')
+  const [engineLabel, setEngineLabel] = useState(ENGINES[0].label)
   const [angle, setAngle] = useState('Top View')
   const [angleDetail, setAngleDetail] = useState(null)
   const [dimension, setDimension] = useState('3D')
   const [styleDetail, setStyleDetail] = useState('Textured')
   const [status, setStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'error'
-  const [phase, setPhase] = useState('sending')
   const [startedAt, setStartedAt] = useState(0)
-  const [result, setResult] = useState(null) // { src, fileName, prompt, angleLabel, styleLabel, ... }
+  const [run, setRun] = useState(null) // { prompt, angleLabel, styleLabel, engineLabel, fileBase }
+  const [slots, setSlots] = useState([]) // one per image: { status, phase, image, error, publish }
   const [error, setError] = useState('')
-  const [downloading, setDownloading] = useState(false)
   const runRef = useRef(0) // increments per run; an older run stops when it changes
   const inputRef = useRef(null)
 
@@ -213,6 +234,7 @@ export default function AIGeneratorPage({ onBack }) {
   const selectionComplete = !needsAngleDetail && !needsStyleDetail
   const angleLabel = angleDetail ? `${angle} · ${angleDetail}` : angle
   const styleLabel = `${dimension} ${styleDetail ?? ''}`.trim()
+  const engine = ENGINES.find((option) => option.label === engineLabel) ?? ENGINES[0]
   const canGenerate = prompt.trim().length >= 3 && selectionComplete && status !== 'generating'
 
   const chooseAngle = (value) => {
@@ -226,59 +248,68 @@ export default function AIGeneratorPage({ onBack }) {
     setStyleDetail(null)
   }
 
+  const updateSlot = (index, patch) =>
+    setSlots((current) => current.map((slot, i) => (i === index ? { ...slot, ...patch } : slot)))
+
   const generate = async () => {
     if (!canGenerate) return
-    const run = ++runRef.current
-    const request = { prompt: prompt.trim(), angle, angleDetail, dimension, styleDetail, angleLabel, styleLabel }
-    const isCurrent = () => runRef.current === run
+    const runId = ++runRef.current
+    const isCurrent = () => runRef.current === runId
+    const request = { prompt: prompt.trim(), angleLabel, styleLabel, engineLabel: engine.label }
 
     setStatus('generating')
-    setPhase('sending')
     setStartedAt(Date.now())
-    setResult(null)
     setError('')
+    setRun({ ...request, fileBase: fileNameFor(request.prompt).replace(/\.png$/, '') })
+    setSlots((previous) => {
+      previous.forEach(releaseImage) // free blob URLs from the last run
+      return Array.from({ length: IMAGES_PER_RUN }, () => ({ status: 'pending', phase: 'sending', publish: { state: 'idle' } }))
+    })
 
     try {
-      let job = await callApi('/api/generate-asset', {
+      const { jobs } = await callApi('/api/generate-asset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: request.prompt,
-          angle: request.angle,
-          angleDetail: request.angleDetail,
-          dimension: request.dimension,
-          styleDetail: request.styleDetail,
-        }),
+        body: JSON.stringify({ prompt: request.prompt, engine: engine.value, angle, angleDetail, dimension, styleDetail }),
       })
+      if (!isCurrent()) return
+      const active = jobs.map((job, index) => ({ index, job }))
+      active.forEach(({ index, job }) => updateSlot(index, { phase: phaseOf(job) }))
       const deadline = Date.now() + GIVE_UP_MS
 
-      while (isCurrent()) {
-        if (job.stage === 'done') {
-          setPhase('finishing')
-          // SVG line art is cut out by removing its background shape; raster
-          // images are already transparent and only need trimming.
-          const image =
-            job.format === 'svg'
-              ? await prepareSvg(job.url).catch((svgError) => {
-                  console.error('[ai-studio] Could not process the SVG:', svgError)
-                  throw new Error('The line drawing could not be prepared. Please try again.')
-                })
-              : await trimTransparent(job.url)
-          if (!isCurrent()) return
-          setResult((previous) => {
-            if (previous?.local) URL.revokeObjectURL(previous.src) // free the last blobs
-            if (previous?.svgSrc) URL.revokeObjectURL(previous.svgSrc)
-            return { ...request, ...image, fileName: fileNameFor(request.prompt) }
-          })
-          setStatus('done')
-          return
+      // Poll every unfinished job in parallel until all four are done or failed.
+      while (active.length && isCurrent()) {
+        if (Date.now() > deadline) {
+          active.forEach(({ index }) => updateSlot(index, { status: 'error', error: 'Took too long. Please try again.' }))
+          break
         }
-        setPhase(job.stage === 'image' && job.status === 'starting' ? 'queued' : job.stage)
-        if (Date.now() > deadline) throw new Error('This is taking longer than usual. Please try again in a minute.')
         await sleep(POLL_MS)
         if (!isCurrent()) return
-        job = await callApi(`/api/generate-asset?id=${encodeURIComponent(job.id)}`)
+        const outcomes = await Promise.all(
+          active.map(async (entry) => {
+            try {
+              const job = await callApi(`/api/generate-asset?id=${encodeURIComponent(entry.job.id)}`)
+              if (job.stage !== 'done') {
+                entry.job = job
+                updateSlot(entry.index, { phase: phaseOf(job) })
+                return false
+              }
+              updateSlot(entry.index, { phase: 'finishing' })
+              // SVG line art is cut out by removing its background shape;
+              // raster images are already transparent and only need trimming.
+              const image = job.format === 'svg' ? await prepareSvg(job.url) : await trimTransparent(job.url)
+              if (isCurrent()) updateSlot(entry.index, { status: 'done', image })
+              return true
+            } catch (failure) {
+              console.error('[ai-studio] Image', entry.index + 1, 'failed:', failure)
+              if (isCurrent()) updateSlot(entry.index, { status: 'error', error: failure.message })
+              return true
+            }
+          }),
+        )
+        for (let i = outcomes.length - 1; i >= 0; i--) if (outcomes[i]) active.splice(i, 1)
       }
+      if (isCurrent()) setStatus('done')
     } catch (failure) {
       if (!isCurrent()) return
       console.error('[ai-studio] Generation failed:', failure)
@@ -289,17 +320,37 @@ export default function AIGeneratorPage({ onBack }) {
 
   const cancel = () => {
     runRef.current += 1
-    setStatus(result ? 'done' : 'idle')
+    setSlots((current) =>
+      current.map((slot) => (slot.status === 'pending' ? { ...slot, status: 'error', error: 'Cancelled.' } : slot)),
+    )
+    setStatus('done')
   }
 
-  const download = async () => {
-    setDownloading(true)
+  // Publish one result to the public library via /api/publish.
+  const publish = async (index) => {
+    const slot = slots[index]
+    if (!slot?.image || slot.publish.state === 'publishing' || slot.publish.state === 'published') return
+    const title = window.prompt('Enter a title for this asset:', run?.prompt ?? '')?.trim()
+    if (!title) return
+
+    updateSlot(index, { publish: { state: 'publishing' } })
     try {
-      await forceDownload([result.src], result.fileName)
-    } finally {
-      setDownloading(false)
+      const png = await pngForUpload(slot.image.src)
+      await callApi('/api/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, image: await blobToBase64(png), styleLabel: run?.styleLabel }),
+      })
+      invalidateCatalogue() // the library shows it on its next load
+      updateSlot(index, { publish: { state: 'published', title } })
+    } catch (failure) {
+      console.error('[ai-studio] Publish failed:', failure)
+      updateSlot(index, { publish: { state: 'error', message: failure.message } })
     }
   }
+
+  const readyCount = slots.filter((slot) => slot.status === 'done').length
+  const finishedCount = slots.filter((slot) => slot.status !== 'pending').length
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
@@ -322,8 +373,8 @@ export default function AIGeneratorPage({ onBack }) {
           Can't find the right asset?
         </h1>
         <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Describe it, and our AI will generate a transparent PNG for your project, ready to drop into
-          your sections, plans and elevations.
+          Describe it and get four transparent PNG variations, ready for your sections, plans and elevations.
+          Publish the best one to the community library.
         </p>
       </header>
 
@@ -376,20 +427,20 @@ export default function AIGeneratorPage({ onBack }) {
             detailLabel="Finish"
           />
         </div>
-        <div className="mt-3 flex flex-col gap-3 border-t border-neutral-200 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400" aria-live="polite">
-            {selectionComplete ? (
-              <>
-                <span className="font-medium text-neutral-800 dark:text-neutral-200">{angleLabel}</span>
-                <span className="mx-1.5 text-neutral-300 dark:text-neutral-600">/</span>
-                <span className="font-medium text-neutral-800 dark:text-neutral-200">{styleLabel}</span>
-              </>
-            ) : needsAngleDetail ? (
-              `Choose a direction for the ${angle.toLowerCase()} view to continue.`
-            ) : (
-              `Choose a ${dimension} finish to continue.`
-            )}
-          </p>
+        <div className="mt-3 grid gap-3 border-t border-neutral-200 px-2 pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end dark:border-neutral-800">
+          <div className="min-w-0">
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
+              <Cpu className="h-3 w-3" strokeWidth={2} aria-hidden />
+              AI engine
+            </p>
+            <Segmented
+              label="AI engine"
+              options={ENGINES.map((option) => option.label)}
+              value={engineLabel}
+              onChange={setEngineLabel}
+              stretch
+            />
+          </div>
           <button
             type="submit"
             disabled={!canGenerate}
@@ -400,9 +451,24 @@ export default function AIGeneratorPage({ onBack }) {
             ) : (
               <Wand2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             )}
-            {status === 'generating' ? 'Generating…' : 'Generate'}
+            {status === 'generating' ? 'Generating…' : `Generate ${IMAGES_PER_RUN}`}
           </button>
         </div>
+        <p className="mt-2 px-2 text-xs text-neutral-500 dark:text-neutral-400" aria-live="polite">
+          {selectionComplete ? (
+            <>
+              <span className="font-medium text-neutral-800 dark:text-neutral-200">{angleLabel}</span>
+              <span className="mx-1.5 text-neutral-300 dark:text-neutral-600">/</span>
+              <span className="font-medium text-neutral-800 dark:text-neutral-200">{styleLabel}</span>
+              <span className="mx-1.5 text-neutral-300 dark:text-neutral-600">/</span>
+              {engine.label}
+            </>
+          ) : needsAngleDetail ? (
+            `Choose a direction for the ${angle.toLowerCase()} view to continue.`
+          ) : (
+            `Choose a ${dimension} finish to continue.`
+          )}
+        </p>
       </form>
 
       {status === 'idle' && (
@@ -423,74 +489,69 @@ export default function AIGeneratorPage({ onBack }) {
         </div>
       )}
 
-      {/* Generating / result / error */}
-      {status !== 'idle' && (
-        <section aria-live="polite" className="mx-auto mt-10 max-w-3xl">
-          <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="relative aspect-square sm:aspect-[4/3]" style={CHECKERBOARD}>
-              {status === 'generating' && <GeneratingState phase={phase} startedAt={startedAt} onCancel={cancel} />}
-              {status === 'error' && <ErrorState message={error} onRetry={generate} />}
-              {status === 'done' && (
-                <img
-                  src={result.src}
-                  alt={`Generated asset: ${result.prompt}`}
-                  className="fade-in absolute inset-0 h-full w-full object-contain p-6"
-                />
-              )}
-            </div>
+      {status === 'error' && (
+        <section className="mx-auto mt-10 max-w-3xl">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800" style={CHECKERBOARD}>
+            <ErrorState message={error} onRetry={generate} />
+          </div>
+        </section>
+      )}
 
-            {status === 'done' && (
-              <div className="fade-in flex flex-col gap-4 border-t border-neutral-200 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium" title={result.prompt}>
-                    {result.prompt}
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    {result.angleLabel} · {result.styleLabel} · Transparent PNG
-                    {result.width ? ` · ${result.width} × ${result.height} px` : ''}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={generate}
-                    className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2.5 text-sm font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
-                  >
-                    <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                    Regenerate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={download}
-                    disabled={downloading}
-                    className="inline-flex items-center gap-2 rounded-md bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                  >
-                    {downloading ? (
-                      <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
-                    ) : (
-                      <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                    )}
-                    Download PNG
-                  </button>
-                  {result.svgSrc && (
-                    <button
-                      type="button"
-                      onClick={() => forceDownload([result.svgSrc], result.fileName.replace(/\.png$/, '.svg'))}
-                      title="Vector file for Rhino, Illustrator or AutoCAD"
-                      className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2.5 text-sm font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
-                    >
-                      <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                      SVG
-                    </button>
-                  )}
-                </div>
-              </div>
+      {/* 2 x 2 results */}
+      {(status === 'generating' || status === 'done') && run && (
+        <section aria-live="polite" className="mx-auto mt-10 max-w-3xl">
+          <div className="mb-3 flex items-center justify-between gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="min-w-0 truncate">
+              <span className="font-medium text-neutral-800 dark:text-neutral-200">{run.prompt}</span>
+              <span className="mx-1.5 text-neutral-300 dark:text-neutral-600">·</span>
+              {status === 'generating' ? (
+                <ElapsedTime startedAt={startedAt} done={finishedCount} total={slots.length} />
+              ) : (
+                `${readyCount} of ${slots.length} ready`
+              )}
+            </p>
+            {status === 'generating' && (
+              <button
+                type="button"
+                onClick={cancel}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                Cancel
+              </button>
             )}
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {slots.map((slot, index) => (
+              <ResultCard
+                key={index}
+                slot={slot}
+                index={index}
+                run={run}
+                onDownload={() => forceDownload([slot.image.src], `${run.fileBase}-${index + 1}.png`)}
+                onDownloadSvg={() => forceDownload([slot.image.svgSrc], `${run.fileBase}-${index + 1}.svg`)}
+                onPublish={() => publish(index)}
+              />
+            ))}
+          </div>
+
           {status === 'done' && (
-            <p className="mt-3 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
-              Generated with Fal.ai (Recraft V3) and trimmed to the object. Download it to keep a copy.
-            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                {run.engineLabel} · {run.angleLabel} · {run.styleLabel}. Images are trimmed to the object; download or
+                publish to keep them.
+              </p>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={!canGenerate}
+                className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:hover:border-neutral-100"
+              >
+                <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Generate again
+              </button>
+            </div>
           )}
         </section>
       )}
@@ -498,44 +559,149 @@ export default function AIGeneratorPage({ onBack }) {
   )
 }
 
-function GeneratingState({ phase, startedAt, onCancel }) {
+function phaseOf(job) {
+  if (job.stage === 'image') return job.status === 'starting' ? 'queued' : 'image'
+  return job.stage === 'background' ? 'background' : 'finishing'
+}
+
+function releaseImage(slot) {
+  if (slot?.image?.local) URL.revokeObjectURL(slot.image.src)
+  if (slot?.image?.svgSrc) URL.revokeObjectURL(slot.image.svgSrc)
+}
+
+function ElapsedTime({ startedAt, done, total }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [])
   const seconds = Math.max(0, Math.round((now - startedAt) / 1000))
-  const { label, hint, progress } = PHASES[phase] ?? PHASES.sending
+  return (
+    <span className="tabular-nums">
+      {done} of {total} finished · {seconds}s · usually 10–25 seconds
+    </span>
+  )
+}
+
+/** One cell of the 2 x 2 grid: skeleton while generating, then the image and its actions. */
+function ResultCard({ slot, index, run, onDownload, onDownloadSvg, onPublish }) {
+  const publishState = slot.publish?.state ?? 'idle'
+  const published = publishState === 'published'
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/75 px-6 text-center backdrop-blur-sm dark:bg-neutral-950/75">
-      {/* Shimmering placeholder tile */}
-      <div className="relative h-28 w-28 overflow-hidden rounded-2xl bg-neutral-200 dark:bg-neutral-800">
-        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" />
+    <article className="flex flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="relative aspect-square" style={CHECKERBOARD}>
+        {slot.status === 'pending' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/70 px-4 text-center backdrop-blur-[2px] dark:bg-neutral-950/70">
+            <div className="relative h-16 w-16 overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
+              <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" />
+            </div>
+            <p key={slot.phase} className="fade-in text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              {(PHASES[slot.phase] ?? PHASES.sending).label}
+            </p>
+            <div className="h-1 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+              <div
+                className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-out dark:bg-neutral-100"
+                style={{ width: `${(PHASES[slot.phase] ?? PHASES.sending).progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {slot.status === 'error' && (
+          <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/85 px-4 text-center dark:bg-neutral-950/85">
+            <CircleAlert className="h-5 w-5 text-neutral-400" strokeWidth={1.5} aria-hidden />
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">{slot.error}</p>
+          </div>
+        )}
+        {slot.status === 'done' && (
+          <img
+            src={slot.image.src}
+            alt={`Variation ${index + 1}: ${run.prompt}`}
+            className="fade-in absolute inset-0 h-full w-full object-contain p-4"
+          />
+        )}
+        <span className="absolute left-2 top-2 rounded bg-neutral-900/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white">
+          {index + 1}
+        </span>
       </div>
-      <p key={phase} className="fade-in mt-8 text-sm font-medium text-neutral-800 dark:text-neutral-100">
-        {label}
-      </p>
-      <div className="mt-4 h-1 w-56 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-        <div
-          className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-out dark:bg-neutral-100"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      <p className="mt-3 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
-        {seconds}s · usually 10–20 seconds
-      </p>
-      {hint && <p className="mt-1 max-w-xs text-xs text-neutral-400 dark:text-neutral-500">{hint}</p>}
-      <button
-        type="button"
-        onClick={onCancel}
-        className="mt-6 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-      >
-        <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        Cancel
-      </button>
-    </div>
+
+      {slot.status === 'done' && (
+        <div className="fade-in flex flex-wrap items-center gap-2 border-t border-neutral-200 p-2.5 dark:border-neutral-800">
+          <button
+            type="button"
+            onClick={onDownload}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-2 text-xs font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            Download
+          </button>
+          {slot.image.svgSrc && (
+            <button
+              type="button"
+              onClick={onDownloadSvg}
+              title="Vector file for Rhino, Illustrator or AutoCAD"
+              className="inline-flex items-center justify-center rounded-md border border-neutral-300 px-2.5 py-2 text-xs font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+            >
+              SVG
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onPublish}
+            disabled={published || publishState === 'publishing'}
+            title={published ? `Published as “${slot.publish.title}”` : 'Add to the public asset library'}
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-default ${
+              published
+                ? 'border border-neutral-300 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400'
+                : 'bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-70 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300'
+            }`}
+          >
+            {publishState === 'publishing' ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+            ) : published ? (
+              <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            ) : (
+              <Upload className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            )}
+            {publishState === 'publishing' ? 'Publishing…' : published ? 'Published' : 'Publish to Library'}
+          </button>
+          {publishState === 'error' && (
+            <p role="alert" className="w-full text-[11px] leading-snug text-neutral-600 dark:text-neutral-300">
+              {slot.publish.message}
+            </p>
+          )}
+        </div>
+      )}
+    </article>
   )
+}
+
+/** Re-encodes smaller if needed so the upload fits Vercel's request size limit. */
+async function pngForUpload(src) {
+  const blob = await (await fetch(src)).blob()
+  const LIMIT = 3 * 1024 * 1024
+  if (blob.type === 'image/png' && blob.size <= LIMIT) return blob
+  let bitmap = await createImageBitmap(blob)
+  let scale = Math.min(1, Math.sqrt(LIMIT / blob.size))
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const png = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (png && png.size <= LIMIT) return png
+    scale *= 0.75
+  }
+  throw new Error('This image is too large to publish.')
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(',')[1])
+    reader.onerror = () => reject(new Error('Could not read the image.'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 function ErrorState({ message, onRetry }) {

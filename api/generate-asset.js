@@ -14,7 +14,8 @@ import { HttpError, sendError } from './_stripe.js'
  * Both run on Fal's queue and nothing here waits for a model to finish (that
  * could exceed Vercel's function time limit). Instead:
  *
- *   POST /api/generate-asset  { prompt, view, style }  -> { id, stage: 'image' }
+ *   POST /api/generate-asset  { prompt, angle, angleDetail, dimension, styleDetail }
+ *                             -> { id, stage: 'image' }
  *   GET  /api/generate-asset?id=<job id>
  *        -> { id, stage: 'image' | 'background', status }   still working
  *        -> { id, stage: 'background' }   image done; cut-out started
@@ -32,39 +33,82 @@ const ENDPOINTS = {
 // Recraft style used for "Line Drawing (Make2D)".
 const LINE_STYLE = 'vector_illustration/line_art'
 
-const VIEW_HINTS = {
-  'Top view': 'orthographic top-down plan view',
-  Elevation: 'orthographic side elevation view',
-  Isometric: 'isometric axonometric view',
-}
-// Framing shared by every style: one object, filling the frame, on white (a
-// plain white backdrop gives the cut-out model the cleanest edge to follow).
-const FRAMING = 'single isolated object, centered and filling most of the frame, on a plain pure white background'
-
-// UI style -> Recraft settings + hidden prompt suffix.
-const STYLES = {
-  'Realistic 3D': {
-    recraft: { style: 'realistic_image' },
-    suffix:
-      ', solid opaque foreground object, highly detailed, professional lighting, ' +
-      'isolated on a simple solid color background',
+/**
+ * Camera angle (Rhino-style viewports). Top View has no direction; Elevation
+ * and Isometric require one. Values must match the AI Studio controls.
+ */
+const ANGLES = {
+  'Top View': { details: [], hint: () => 'strict top-down flat lay view, directly from above, orthographic' },
+  Elevation: {
+    details: ['Left', 'Right', 'Front', 'Back'],
+    hint: (detail) =>
+      `flat ${detail.toLowerCase()} elevation view, strict orthographic projection, no perspective, zero vanishing points`,
   },
-  'Line Drawing (Make2D)': {
-    // Recraft's vector line-art style with a white + black palette: clean
-    // outlines and flat white surfaces (a black-only palette fills surfaces
-    // black). It returns SVG, which skips the background remover below.
-    recraft: { style: LINE_STYLE, colors: [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }] },
-    suffix:
-      ', pure minimalist black and white line drawing, clean continuous lines, architectural CAD style, ' +
-      'Rhino Make2D, flat untextured white surfaces, absolute zero texture, no shading, no hatching, ' +
-      'no gradients, no shadows.',
+  Isometric: {
+    details: ['NW', 'NE', 'SE', 'SW'],
+    hint: (detail) =>
+      `true isometric projection, viewing from ${COMPASS[detail]} angle, 30-degree architectural isometric`,
   },
 }
-const DEFAULT_STYLE = 'Realistic 3D'
+const COMPASS = { NW: 'the north-west', NE: 'the north-east', SE: 'the south-east', SW: 'the south-west' }
 
-function buildPrompt({ prompt, view, style }) {
-  const { suffix } = STYLES[style] ?? STYLES[DEFAULT_STYLE]
-  return `${[prompt, VIEW_HINTS[view], FRAMING].filter(Boolean).join(', ')}${suffix}`
+/**
+ * Render style: dimension + detail -> Recraft settings and hidden prompt.
+ * Raster results go through the BiRefNet cut-out; the 2D line drawing uses
+ * Recraft's vector line-art style (clean Make2D lines) and comes back as SVG,
+ * which the browser cuts out itself.
+ */
+const RENDER_STYLES = {
+  '3D': {
+    Textured: {
+      recraft: { style: 'realistic_image' },
+      hint: 'highly detailed 3D render, realistic materials and textures, professional lighting, raytraced',
+    },
+    'White Model': {
+      recraft: { style: 'realistic_image' },
+      hint: 'pure white architectural clay model, ambient occlusion, untextured, solid white monochrome plaster, soft studio lighting',
+      // A white model on a white backdrop is the hardest case for any cut-out.
+      backdrop: 'plain light grey studio background',
+    },
+  },
+  '2D': {
+    'Line Drawing': {
+      // White + black palette: clean outlines and flat white surfaces (a
+      // black-only palette fills surfaces black).
+      recraft: { style: LINE_STYLE, colors: [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }] },
+      hint: 'pure minimalist black and white line drawing, clean continuous lines, architectural CAD style, Rhino Make2D, zero texture, no shading, no gradients',
+    },
+    Textured: {
+      recraft: { style: 'digital_illustration' },
+      hint: 'flat 2D graphic illustration, architectural diagram style, textured, no 3D depth, orthographic flat vector style',
+    },
+  },
+}
+
+// Framing shared by every combination ("transparent background" enforcers:
+// image models cannot draw transparency, so they get one isolated object on
+// a plain backdrop and the cut-out step removes it).
+const framing = (backdrop) =>
+  `single isolated solid opaque object, centered and filling most of the frame, on a ${backdrop}, ` +
+  'no ground shadow, no reflection, no scenery, no text, no watermark, no border'
+
+/** Validates the four selections; throws a 400 for any combination the UI cannot produce. */
+function readSelection(body) {
+  const angle = ANGLES[body?.angle]
+  if (!angle) throw new HttpError(400, 'Please choose a camera angle.')
+  const angleDetail = angle.details.length ? body.angleDetail : null
+  if (angle.details.length && !angle.details.includes(angleDetail)) {
+    throw new HttpError(400, `Please choose a direction for the ${body.angle.toLowerCase()} view.`)
+  }
+  const render = RENDER_STYLES[body?.dimension]?.[body?.styleDetail]
+  if (!render) throw new HttpError(400, 'Please choose a render style.')
+  return { angle, angleDetail, render }
+}
+
+function buildPrompt(prompt, { angle, angleDetail, render }) {
+  return [prompt, angle.hint(angleDetail), render.hint, framing(render.backdrop ?? 'plain pure white background')].join(
+    ', ',
+  )
 }
 
 function getFal() {
@@ -105,12 +149,13 @@ async function startImage(fal, body) {
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   if (prompt.length < 3) throw new HttpError(400, 'Please describe the asset in a few words.')
   if (prompt.length > 300) throw new HttpError(400, 'Please keep the description under 300 characters.')
+  const selection = readSelection(body)
 
   const { request_id } = await fal.queue.submit(ENDPOINTS.image, {
     input: {
-      prompt: buildPrompt({ prompt, view: body.view, style: body.style }),
+      prompt: buildPrompt(prompt, selection),
       image_size: 'square_hd',
-      ...(STYLES[body.style] ?? STYLES[DEFAULT_STYLE]).recraft,
+      ...selection.render.recraft,
     },
   })
   return { id: jobId('image', request_id), stage: 'image', status: 'starting' }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, CircleAlert, Download, LoaderCircle, RotateCcw, Sparkles, Wand2, X } from 'lucide-react'
+import { ArrowLeft, Camera, CircleAlert, Download, Layers, LoaderCircle, RotateCcw, Sparkles, Wand2, X } from 'lucide-react'
 import { forceDownload } from '../lib/download'
 
 /**
@@ -7,14 +7,23 @@ import { forceDownload } from '../lib/download'
  * background removal) -> transparent PNG. The API starts a job and the page
  * polls it, so slow model start-ups never hit a request time limit.
  */
-const VIEWS = ['Top view', 'Elevation', 'Isometric']
-// Values are sent as-is to /api/generate-asset, which maps them to model settings.
-const STYLES = ['Realistic 3D', 'Line Drawing (Make2D)']
+// Cascading viewport / render controls. Values are sent as-is to
+// /api/generate-asset, which validates them and maps them to model settings.
+const ANGLES = [
+  { value: 'Top View', details: [] },
+  { value: 'Elevation', details: ['Left', 'Right', 'Front', 'Back'] },
+  { value: 'Isometric', details: ['NW', 'NE', 'SE', 'SW'] },
+]
+const DIMENSIONS = [
+  { value: '3D', details: ['Textured', 'White Model'] },
+  { value: '2D', details: ['Line Drawing', 'Textured'] },
+]
+const detailsOf = (options, value) => options.find((option) => option.value === value)?.details ?? []
 const EXAMPLES = [
-  'A modern minimalist chair in top view',
-  'Deciduous tree in elevation',
-  'Person walking with a backpack, side view',
-  'Compact hatchback car from above',
+  'A modern minimalist lounge chair',
+  'Deciduous street tree',
+  'Person walking with a backpack',
+  'Compact hatchback car',
 ]
 
 const POLL_MS = 1500
@@ -181,12 +190,14 @@ async function callApi(url, options) {
 
 export default function AIGeneratorPage({ onBack }) {
   const [prompt, setPrompt] = useState('')
-  const [view, setView] = useState(VIEWS[0])
-  const [style, setStyle] = useState(STYLES[0])
+  const [angle, setAngle] = useState('Top View')
+  const [angleDetail, setAngleDetail] = useState(null)
+  const [dimension, setDimension] = useState('3D')
+  const [styleDetail, setStyleDetail] = useState('Textured')
   const [status, setStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'error'
   const [phase, setPhase] = useState('sending')
   const [startedAt, setStartedAt] = useState(0)
-  const [result, setResult] = useState(null) // { src, fileName, prompt, view, style }
+  const [result, setResult] = useState(null) // { src, fileName, prompt, angleLabel, styleLabel, ... }
   const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const runRef = useRef(0) // increments per run; an older run stops when it changes
@@ -196,12 +207,29 @@ export default function AIGeneratorPage({ onBack }) {
     runRef.current += 1 // stop polling when leaving the page
   }, [])
 
-  const canGenerate = prompt.trim().length >= 3 && status !== 'generating'
+  // A main option with sub-options needs one of them picked before generating.
+  const needsAngleDetail = detailsOf(ANGLES, angle).length > 0 && !angleDetail
+  const needsStyleDetail = !styleDetail
+  const selectionComplete = !needsAngleDetail && !needsStyleDetail
+  const angleLabel = angleDetail ? `${angle} · ${angleDetail}` : angle
+  const styleLabel = `${dimension} ${styleDetail ?? ''}`.trim()
+  const canGenerate = prompt.trim().length >= 3 && selectionComplete && status !== 'generating'
+
+  const chooseAngle = (value) => {
+    if (value === angle) return
+    setAngle(value)
+    setAngleDetail(null)
+  }
+  const chooseDimension = (value) => {
+    if (value === dimension) return
+    setDimension(value)
+    setStyleDetail(null)
+  }
 
   const generate = async () => {
     if (!canGenerate) return
     const run = ++runRef.current
-    const request = { prompt: prompt.trim(), view, style }
+    const request = { prompt: prompt.trim(), angle, angleDetail, dimension, styleDetail, angleLabel, styleLabel }
     const isCurrent = () => runRef.current === run
 
     setStatus('generating')
@@ -214,7 +242,13 @@ export default function AIGeneratorPage({ onBack }) {
       let job = await callApi('/api/generate-asset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          prompt: request.prompt,
+          angle: request.angle,
+          angleDetail: request.angleDetail,
+          dimension: request.dimension,
+          styleDetail: request.styleDetail,
+        }),
       })
       const deadline = Date.now() + GIVE_UP_MS
 
@@ -317,14 +351,45 @@ export default function AIGeneratorPage({ onBack }) {
               generate()
             }
           }}
-          placeholder="A modern minimalist chair in top view"
+          placeholder="A modern minimalist lounge chair"
           className="block w-full resize-none bg-transparent px-4 py-3 text-lg outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
         />
-        <div className="flex flex-col gap-3 border-t border-neutral-200 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
-          <div className="flex flex-wrap gap-2">
-            <Segmented label="View" options={VIEWS} value={view} onChange={setView} />
-            <Segmented label="Style" options={STYLES} value={style} onChange={setStyle} />
-          </div>
+        <div className="grid gap-3 border-t border-neutral-200 px-2 pt-3 md:grid-cols-2 dark:border-neutral-800">
+          <CascadeControl
+            icon={Camera}
+            label="Camera angle"
+            options={ANGLES}
+            value={angle}
+            onChange={chooseAngle}
+            detail={angleDetail}
+            onDetailChange={setAngleDetail}
+            detailLabel="Direction"
+          />
+          <CascadeControl
+            icon={Layers}
+            label="Render style"
+            options={DIMENSIONS}
+            value={dimension}
+            onChange={chooseDimension}
+            detail={styleDetail}
+            onDetailChange={setStyleDetail}
+            detailLabel="Finish"
+          />
+        </div>
+        <div className="mt-3 flex flex-col gap-3 border-t border-neutral-200 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400" aria-live="polite">
+            {selectionComplete ? (
+              <>
+                <span className="font-medium text-neutral-800 dark:text-neutral-200">{angleLabel}</span>
+                <span className="mx-1.5 text-neutral-300 dark:text-neutral-600">/</span>
+                <span className="font-medium text-neutral-800 dark:text-neutral-200">{styleLabel}</span>
+              </>
+            ) : needsAngleDetail ? (
+              `Choose a direction for the ${angle.toLowerCase()} view to continue.`
+            ) : (
+              `Choose a ${dimension} finish to continue.`
+            )}
+          </p>
           <button
             type="submit"
             disabled={!canGenerate}
@@ -381,7 +446,7 @@ export default function AIGeneratorPage({ onBack }) {
                     {result.prompt}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    {result.view} · {result.style} · Transparent PNG
+                    {result.angleLabel} · {result.styleLabel} · Transparent PNG
                     {result.width ? ` · ${result.width} × ${result.height} px` : ''}
                   </p>
                 </div>
@@ -493,16 +558,75 @@ function ErrorState({ message, onRetry }) {
   )
 }
 
-function Segmented({ label, options, value, onChange }) {
+/**
+ * Viewport-style control: main options as a segmented bar; when the chosen
+ * option has sub-options they slide open in a nested panel underneath.
+ */
+function CascadeControl({ icon: Icon, label, options, value, onChange, detail, onDetailChange, detailLabel }) {
+  const details = detailsOf(options, value)
+  const open = details.length > 0
+
   return (
-    <div role="group" aria-label={label} className="flex rounded-md border border-neutral-200 p-0.5 text-xs dark:border-neutral-700">
+    <div role="group" aria-label={label} className="min-w-0">
+      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
+        <Icon className="h-3 w-3" strokeWidth={2} aria-hidden />
+        {label}
+      </p>
+      <Segmented label={label} options={options.map((option) => option.value)} value={value} onChange={onChange} stretch />
+
+      {/* grid-rows 0fr -> 1fr animates the panel's real height smoothly */}
+      <div
+        className={`grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out ${
+          open ? 'mt-1.5 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0'
+        }`}
+        aria-hidden={!open}
+      >
+        <div className="overflow-hidden">
+          <div
+            className={`flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors ${
+              open && !detail
+                ? 'border-neutral-400 bg-neutral-50 dark:border-neutral-500 dark:bg-neutral-800/60'
+                : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/40'
+            }`}
+          >
+            <span className="shrink-0 pl-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-400 dark:text-neutral-500">
+              {detailLabel}
+            </span>
+            <div role="group" aria-label={`${value} ${detailLabel.toLowerCase()}`} className="flex flex-1 flex-wrap justify-end gap-1">
+              {details.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  tabIndex={open ? 0 : -1}
+                  onClick={() => onDetailChange(option)}
+                  aria-pressed={detail === option}
+                  className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    detail === option
+                      ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                      : 'text-neutral-500 hover:bg-white hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Segmented({ label, options, value, onChange, stretch = false }) {
+  return (
+    <div role="group" aria-label={label} className={`flex rounded-md border border-neutral-200 p-0.5 text-xs dark:border-neutral-700 ${stretch ? 'w-full' : ''}`}>
       {options.map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onChange(option)}
           aria-pressed={value === option}
-          className={`rounded px-2.5 py-1.5 font-medium transition-colors ${
+          className={`rounded px-2.5 py-1.5 font-medium transition-colors ${stretch ? 'flex-1' : ''} ${
             value === option
               ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
               : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'

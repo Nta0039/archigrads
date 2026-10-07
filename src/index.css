@@ -73,15 +73,19 @@ body {
 }
 
 :root {
-  --ai-fill: #f5f5f5; /* page background, fills the pill inside its border */
-  --ai-edge: #d4d4d4; /* resting border */
-  --ai-glint: #404040; /* the light that travels around it */
+  --ai-fill: #ffffff; /* fills the pill inside its border */
+  --ai-edge: #171717; /* resting border: near black */
+  --ai-tail: #a3a3a3; /* silver tail behind the beam */
+  --ai-beam: #0ea5e9; /* electric blue beam */
+  --ai-flash: #e0f2fe; /* bright head of the beam */
 }
 
 .dark {
   --ai-fill: #0a0a0a;
-  --ai-edge: #404040;
-  --ai-glint: #dbeafe; /* pale architectural blue */
+  --ai-edge: #3f3f46; /* dark graphite */
+  --ai-tail: #d4d4d4;
+  --ai-beam: #22d3ee; /* cyan */
+  --ai-flash: #ffffff;
 }
 
 @keyframes ai-border-flow {

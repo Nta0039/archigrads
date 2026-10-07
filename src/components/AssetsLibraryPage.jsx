@@ -66,8 +66,9 @@ function buildCategoryOptions(categories) {
  *   label: 'bg-[linear-gradient(110deg,#737373_35%,#e5e5e5_50%,#737373_65%)] bg-[length:200%_100%]
  *           bg-clip-text text-transparent animate-[ai-text-sweep_3.5s_linear_infinite] motion-reduce:animate-none'
  *
- * Option B - Flowing light border (in use): a faint light travels slowly around
- *   the outline; pale blue in dark mode, graphite in light mode.
+ * Option B - Flowing light border (in use): a 2px border with a silver-to-cyan
+ *   beam sweeping around it (black base in light mode, graphite in dark mode),
+ *   plus a soft drop shadow and a bold label.
  *   pill:  (see AI_PILL_EFFECTS.flowingBorder below)
  *
  * Option C - Soft glass glow: a gentle pulsing outer glow.
@@ -82,7 +83,8 @@ const AI_PILL_EFFECTS = {
   },
   flowingBorder: {
     pill:
-      'border-transparent text-neutral-800 [background:linear-gradient(var(--ai-fill),var(--ai-fill))_padding-box,conic-gradient(from_var(--ai-angle),var(--ai-edge)_0deg,var(--ai-edge)_250deg,var(--ai-glint)_315deg,var(--ai-edge)_360deg)_border-box] animate-[ai-border-flow_6s_linear_infinite] motion-reduce:animate-none hover:text-neutral-950 dark:text-neutral-200 dark:hover:text-white',
+      'border-2 border-transparent px-[15px] py-[7px] font-semibold text-neutral-950 shadow-lg shadow-neutral-400/50 [background:linear-gradient(var(--ai-fill),var(--ai-fill))_padding-box,conic-gradient(from_var(--ai-angle),var(--ai-edge)_0deg,var(--ai-edge)_190deg,var(--ai-tail)_250deg,var(--ai-beam)_300deg,var(--ai-flash)_318deg,var(--ai-beam)_328deg,var(--ai-edge)_350deg)_border-box] animate-[ai-border-flow_4s_linear_infinite] motion-reduce:animate-none hover:shadow-neutral-500/60 dark:text-white dark:shadow-white/20 dark:hover:shadow-white/30',
+    ownsBox: true, // 2px border, so it sets its own padding (same overall size as the other pills)
     label: '',
   },
   softGlow: {
@@ -343,7 +345,10 @@ function Pill({ active, onClick, icon: Icon, effect, children }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group/pill flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors sm:text-base ${
+      className={`group/pill flex items-center gap-2 rounded-md text-sm transition-[color,background-color,border-color,box-shadow] sm:text-base ${
+        // An effect with ownsBox sets its own border width, padding and weight.
+        highlighted && effect.ownsBox ? '' : 'border px-4 py-2 font-medium'
+      } ${
         active
           ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
           : highlighted

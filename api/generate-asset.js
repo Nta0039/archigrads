@@ -107,6 +107,10 @@ async function startImage(fal, body) {
       prompt: buildPrompt({ prompt, view: body.view, style: body.style }),
       image_size: 'square_hd',
       ...(STYLES[body.style] ?? STYLES[DEFAULT_STYLE]).recraft,
+      // TEMP style comparison (removed after testing): allow-listed raster styles only.
+      ...(['digital_illustration/outline_details', 'digital_illustration/hand_drawn_outline'].includes(body.__testStyle)
+        ? { style: body.__testStyle }
+        : {}),
     },
   })
   return { id: jobId('image', request_id), stage: 'image', status: 'starting' }

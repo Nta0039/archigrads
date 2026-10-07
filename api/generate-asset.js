@@ -3,7 +3,7 @@ import Replicate from 'replicate'
 import { HttpError, sendError } from './_stripe.js'
 
 /**
- * AI Studio: four transparent PNGs per prompt, on one of two engines.
+ * AI Studio: transparent PNGs per prompt (4 on Fal, 2 on Replicate).
  *
  *   Fal.ai (Premium)     fal-ai/flux/dev -> fal-ai/bria/background/remove
  *                        2D Line Drawing: Recraft V3 vector line art (clean
@@ -24,8 +24,13 @@ import { HttpError, sendError } from './_stripe.js'
  *
  * Job ids are "<step>_<provider request id>". Only the steps below can ever be
  * queried, and every cut-out takes its image from the previous step here.
+ *
+ * Replicate rate-limits low-credit accounts to about one request at a time, so
+ * that engine makes ONE prediction with num_outputs = 2 and each grid slot
+ * follows one output ("rep-flux_<id>_<output index>"). A cut-out that Replicate
+ * refuses with 429 is simply retried on the next poll.
  */
-const IMAGES_PER_PROMPT = 4
+const IMAGES_PER_PROMPT = { fal: 4, replicate: 2 }
 
 const STEPS = {
   'fal-flux': { provider: 'fal', stage: 'image', endpoint: 'fal-ai/flux/dev', next: 'fal-bria' },
@@ -158,7 +163,7 @@ async function startStep(stepName, input) {
 }
 
 /** Reads one step: { done: false, status } or { done: true, url, contentType }. */
-async function readStep(stepName, requestId) {
+async function readStep(stepName, requestId, outputIndex = 0) {
   const step = STEPS[stepName]
   if (step.provider === 'fal') {
     const fal = getFal()
@@ -177,11 +182,13 @@ async function readStep(stepName, requestId) {
     if (/nsfw|safety/i.test(String(prediction.error))) {
       throw new HttpError(422, 'That prompt was blocked by the safety filter. Please try a different description.')
     }
-    throw new HttpError(502, 'The AI model could not finish this image. Please try again.')
+    throw new HttpError(500, `Replicate prediction ${prediction.status}: ${prediction.error ?? 'no reason given'}`)
   }
   if (prediction.status !== 'succeeded') return { done: false, status: prediction.status }
-  const url = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
-  return { done: true, url, contentType: '' }
+  // Flux returns an array of URLs (one per output); the cut-out model returns
+  // a single URL string. Either may be a FileOutput object, so stringify it.
+  const output = Array.isArray(prediction.output) ? prediction.output[outputIndex] : prediction.output
+  return { done: true, url: output ? String(output) : '', contentType: '' }
 }
 
 function cutoutInput(stepName, imageUrl) {
@@ -191,6 +198,11 @@ function cutoutInput(stepName, imageUrl) {
 
 /** Provider failures -> messages the page can show. */
 function toHttpError(error) {
+  if (error?.isReplicate) {
+    // Replicate failures are passed through verbatim so the page shows the real cause.
+    console.error('Replicate Error:', error)
+    return new HttpError(500, String(error.message || 'Replicate request failed.'))
+  }
   const status = error instanceof ApiError ? error.status : error?.response?.status
   if (!status || error instanceof HttpError) return error
   const detail = error instanceof ApiError ? JSON.stringify(error.body ?? '') : String(error.message)
@@ -223,22 +235,27 @@ async function startJobs(body) {
     stepName = 'fal-flux'
     input = { prompt: fullPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3.5, num_images: 1, output_format: 'png', enable_safety_checker: true }
   } else {
-    stepName = 'rep-flux'
-    input = { prompt: fullPrompt, aspect_ratio: '1:1', num_outputs: 1, output_format: 'png', go_fast: true, megapixels: '1' }
+    // One prediction, two outputs: a single request stays inside Replicate's rate limit.
+    const count = IMAGES_PER_PROMPT.replicate
+    input = { prompt: fullPrompt, aspect_ratio: '1:1', num_outputs: count, output_format: 'png', go_fast: true, megapixels: '1' }
+    const requestId = await startStep('rep-flux', input)
+    return {
+      jobs: Array.from({ length: count }, (_, i) => ({ id: `rep-flux_${requestId}_${i}`, stage: 'image', status: 'starting' })),
+    }
   }
 
-  // Four independent jobs, started in parallel (each gets its own random seed).
-  const requestIds = await Promise.all(Array.from({ length: IMAGES_PER_PROMPT }, () => startStep(stepName, input)))
+  // Independent Fal jobs, started in parallel (each gets its own random seed).
+  const requestIds = await Promise.all(Array.from({ length: IMAGES_PER_PROMPT.fal }, () => startStep(stepName, input)))
   return { jobs: requestIds.map((requestId) => ({ id: `${stepName}_${requestId}`, stage: 'image', status: 'starting' })) }
 }
 
 async function advance(id) {
-  const match = /^(fal-flux|fal-recraft|fal-bria|rep-flux|rep-cutout)_([A-Za-z0-9-]{8,80})$/.exec(id)
+  const match = /^(fal-flux|fal-recraft|fal-bria|rep-flux|rep-cutout)_([A-Za-z0-9-]{8,80}?)(?:_([0-3]))?$/.exec(id)
   if (!match) throw new HttpError(400, 'Invalid job id.')
-  const [, stepName, requestId] = match
+  const [, stepName, requestId, outputIndex = '0'] = match
   const step = STEPS[stepName]
 
-  const state = await readStep(stepName, requestId)
+  const state = await readStep(stepName, requestId, Number(outputIndex))
   if (!state.done) return { id, stage: step.stage, status: state.status }
   if (!state.url) throw new HttpError(502, 'The AI model returned no image. Please try again.')
 
@@ -249,7 +266,15 @@ async function advance(id) {
   if (/svg/i.test(state.contentType) || /\.svg(\?|$)/i.test(state.url)) {
     return { stage: 'done', url: state.url, format: 'svg' }
   }
-  const nextId = await startStep(step.next, cutoutInput(step.next, state.url))
+  let nextId
+  try {
+    nextId = await startStep(step.next, cutoutInput(step.next, state.url))
+  } catch (error) {
+    // Both Replicate slots finish together; if the second cut-out is rate
+    // limited, keep this id and start it on the next poll instead of failing.
+    if (step.provider === 'replicate' && error?.response?.status === 429) return { id, stage: 'image', status: 'processing' }
+    throw error
+  }
   return { id: `${step.next}_${nextId}`, stage: 'background', status: 'starting' }
 }
 
@@ -265,6 +290,8 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store')
     res.status(result.stage === 'done' ? 200 : 202).json(result)
   } catch (error) {
+    const isReplicate = req.body?.engine === 'replicate' || String(req.query?.id ?? '').startsWith('rep-')
+    if (isReplicate && !(error instanceof HttpError)) error.isReplicate = true
     sendError(res, toHttpError(error))
   }
 }

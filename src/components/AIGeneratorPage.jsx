@@ -18,15 +18,14 @@ import { forceDownload } from '../lib/download'
 import { invalidateCatalogue } from '../lib/useCatalogue'
 
 /**
- * AI Studio: prompt -> /api/generate-asset -> four transparent PNG variations
- * (2 x 2 grid) on the chosen engine. The API starts four jobs in parallel and
+ * AI Studio: prompt -> /api/generate-asset -> transparent PNG variations
+ * (2 x 2 grid on Fal, 2 on Replicate). The API starts the jobs in parallel and
  * the page polls them, so slow model start-ups never hit a request time limit.
  * Any result can be published to the public library via /api/publish.
  */
-const IMAGES_PER_RUN = 4
 const ENGINES = [
-  { value: 'fal', label: 'Fal.ai (Premium)' },
-  { value: 'replicate', label: 'Replicate (Standard)' },
+  { value: 'fal', label: 'Fal.ai (Premium)', images: 4 },
+  { value: 'replicate', label: 'Replicate (Standard)', images: 2 },
 ]
 // Cascading viewport / render controls. Values are sent as-is to
 // /api/generate-asset, which validates them and maps them to model settings.
@@ -263,7 +262,7 @@ export default function AIGeneratorPage({ onBack }) {
     setRun({ ...request, fileBase: fileNameFor(request.prompt).replace(/\.png$/, '') })
     setSlots((previous) => {
       previous.forEach(releaseImage) // free blob URLs from the last run
-      return Array.from({ length: IMAGES_PER_RUN }, () => ({ status: 'pending', phase: 'sending', publish: { state: 'idle' } }))
+      return Array.from({ length: engine.images }, () => ({ status: 'pending', phase: 'sending', publish: { state: 'idle' } }))
     })
 
     try {
@@ -273,11 +272,13 @@ export default function AIGeneratorPage({ onBack }) {
         body: JSON.stringify({ prompt: request.prompt, engine: engine.value, angle, angleDetail, dimension, styleDetail }),
       })
       if (!isCurrent()) return
+      // The API may return fewer jobs than placeholders shown; drop the extras.
+      setSlots((current) => current.slice(0, jobs.length))
       const active = jobs.map((job, index) => ({ index, job }))
       active.forEach(({ index, job }) => updateSlot(index, { phase: phaseOf(job) }))
       const deadline = Date.now() + GIVE_UP_MS
 
-      // Poll every unfinished job in parallel until all four are done or failed.
+      // Poll every unfinished job in parallel until each one is done or failed.
       while (active.length && isCurrent()) {
         if (Date.now() > deadline) {
           active.forEach(({ index }) => updateSlot(index, { status: 'error', error: 'Took too long. Please try again.' }))
@@ -373,7 +374,7 @@ export default function AIGeneratorPage({ onBack }) {
           Can't find the right asset?
         </h1>
         <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Describe it and get four transparent PNG variations, ready for your sections, plans and elevations.
+          Describe it and get up to four transparent PNG variations, ready for your sections, plans and elevations.
           Publish the best one to the community library.
         </p>
       </header>
@@ -451,7 +452,7 @@ export default function AIGeneratorPage({ onBack }) {
             ) : (
               <Wand2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             )}
-            {status === 'generating' ? 'Generating…' : `Generate ${IMAGES_PER_RUN}`}
+            {status === 'generating' ? 'Generating…' : `Generate ${engine.images}`}
           </button>
         </div>
         <p className="mt-2 px-2 text-xs text-neutral-500 dark:text-neutral-400" aria-live="polite">

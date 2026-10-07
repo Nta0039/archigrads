@@ -119,12 +119,12 @@ function coversCanvas(element, width, height) {
 }
 
 /**
- * Line drawings arrive as SVG. Deleting the full-canvas background shape makes
- * everything outside the object transparent, while surfaces enclosed by lines
- * (separate white shapes) stay solid. Returns a trimmed PNG for display and
- * download, plus the cleaned SVG itself (a true vector for Rhino / Illustrator).
+ * Rasterises an SVG (Fal line drawings) to a PNG for display and download, and
+ * keeps the SVG itself (a true vector for Rhino / Illustrator). Line drawings
+ * keep their white background (keepBackground); otherwise the full-canvas
+ * background shape is deleted so only the object remains.
  */
-async function prepareSvg(url) {
+async function prepareSvg(url, { keepBackground = false } = {}) {
   const text = await (await fetch(url)).text()
   const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
   const svg = doc.documentElement
@@ -133,7 +133,7 @@ async function prepareSvg(url) {
   const width = viewWidth || Number(svg.getAttribute('width')) || 1024
   const height = viewHeight || Number(svg.getAttribute('height')) || 1024
 
-  for (const shape of svg.querySelectorAll('path, rect')) {
+  for (const shape of keepBackground ? [] : svg.querySelectorAll('path, rect')) {
     if (coversCanvas(shape, width, height) && isLightFill(shape.getAttribute('fill'))) shape.remove()
   }
   // Rasterise large for a crisp PNG.
@@ -296,9 +296,11 @@ export default function AIGeneratorPage({ onBack }) {
                 return false
               }
               updateSlot(entry.index, { phase: 'finishing' })
-              // SVG line art is cut out by removing its background shape;
-              // raster images are already transparent and only need trimming.
-              const image = job.format === 'svg' ? await prepareSvg(job.url) : await trimTransparent(job.url)
+              // Line drawings arrive with background 'white' and keep it (no
+              // cut-out); other images are already transparent and only need trimming.
+              const keepBackground = job.background === 'white'
+              const image =
+                job.format === 'svg' ? await prepareSvg(job.url, { keepBackground }) : await trimTransparent(job.url)
               if (isCurrent()) updateSlot(entry.index, { status: 'done', image })
               return true
             } catch (failure) {
@@ -374,7 +376,7 @@ export default function AIGeneratorPage({ onBack }) {
           Can't find the right asset?
         </h1>
         <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Describe it and get up to four transparent PNG variations, ready for your sections, plans and elevations.
+          Describe it and get up to four PNG variations (transparent, or on white for line drawings), ready for your sections, plans and elevations.
           Publish the best one to the community library.
         </p>
       </header>

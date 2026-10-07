@@ -8,7 +8,8 @@ import { forceDownload } from '../lib/download'
  * polls it, so slow model start-ups never hit a request time limit.
  */
 const VIEWS = ['Top view', 'Elevation', 'Isometric']
-const STYLES = ['Silhouette', 'Line drawing', 'Soft render']
+// Values are sent as-is to /api/generate-asset, which maps them to model settings.
+const STYLES = ['Realistic 3D', 'Line Drawing (Make2D)']
 const EXAMPLES = [
   'A modern minimalist chair in top view',
   'Deciduous tree in elevation',

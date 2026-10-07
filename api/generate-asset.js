@@ -27,28 +27,40 @@ const ENDPOINTS = {
   background: 'fal-ai/birefnet/v2',
 }
 
+// Recraft style used for "Line Drawing (Make2D)".
+const LINE_STYLE = 'vector_illustration/line_art'
+
 const VIEW_HINTS = {
   'Top view': 'orthographic top-down plan view',
   Elevation: 'orthographic side elevation view',
   Isometric: 'isometric axonometric view',
 }
-// Recraft style + wording per UI style. Raster styles only: vector styles can
-// return SVG, which the background remover cannot read.
-const STYLES = {
-  Silhouette: { style: 'digital_illustration', hint: 'solid dark grey silhouette, minimal flat graphic' },
-  'Line drawing': { style: 'digital_illustration', hint: 'clean black line drawing, technical architectural illustration' },
-  'Soft render': { style: 'realistic_image', hint: 'soft shaded render in neutral greys, architectural visualisation' },
-}
+// Framing shared by every style: one object, filling the frame, on white (a
+// plain white backdrop gives the cut-out model the cleanest edge to follow).
+const FRAMING = 'single isolated object, centered and filling most of the frame, on a plain pure white background'
 
-// Hidden quality prompt. A plain white backdrop gives the cut-out model the
-// cleanest possible edge to follow.
-const QUALITY_PROMPT =
-  'high quality architectural asset, single isolated object, centered and filling most of the frame, ' +
-  'on a plain pure white background, professional even lighting, crisp clean edges, ' +
-  'no ground shadow, no reflection, no scenery, no text, no watermark, no border'
+// UI style -> Recraft settings + hidden prompt suffix.
+const STYLES = {
+  'Realistic 3D': {
+    recraft: { style: 'realistic_image' },
+    suffix:
+      ', solid opaque foreground object, highly detailed, professional lighting, ' +
+      'isolated on a simple solid color background',
+  },
+  'Line Drawing (Make2D)': {
+    // Recraft's line-art style plus a black-only palette: no textures or greys.
+    recraft: { style: LINE_STYLE, colors: [{ r: 0, g: 0, b: 0 }] },
+    suffix:
+      ', pure minimalist black and white line drawing, clean continuous lines, architectural CAD style, ' +
+      'Rhino Make2D, flat untextured white surfaces, absolute zero texture, no shading, no hatching, ' +
+      'no gradients, no shadows.',
+  },
+}
+const DEFAULT_STYLE = 'Realistic 3D'
 
 function buildPrompt({ prompt, view, style }) {
-  return [prompt, VIEW_HINTS[view], STYLES[style]?.hint, QUALITY_PROMPT].filter(Boolean).join(', ')
+  const { suffix } = STYLES[style] ?? STYLES[DEFAULT_STYLE]
+  return `${[prompt, VIEW_HINTS[view], FRAMING].filter(Boolean).join(', ')}${suffix}`
 }
 
 function getFal() {
@@ -94,7 +106,7 @@ async function startImage(fal, body) {
     input: {
       prompt: buildPrompt({ prompt, view: body.view, style: body.style }),
       image_size: 'square_hd',
-      style: STYLES[body.style]?.style ?? 'digital_illustration',
+      ...(STYLES[body.style] ?? STYLES[DEFAULT_STYLE]).recraft,
     },
   })
   return { id: jobId('image', request_id), stage: 'image', status: 'starting' }
@@ -113,8 +125,10 @@ async function advance(fal, id) {
   const { data } = await fal.queue.result(endpoint, { requestId })
 
   if (stage === 'image') {
-    const imageUrl = data?.images?.[0]?.url
+    const image = data?.images?.[0]
+    const imageUrl = image?.url
     if (!imageUrl) throw new HttpError(502, 'The AI model returned no image. Please try again.')
+    console.log(`[fal] image ready: ${image.content_type ?? 'unknown type'}`)
     const { request_id } = await fal.queue.submit(ENDPOINTS.background, {
       input: {
         image_url: imageUrl,

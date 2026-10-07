@@ -105,8 +105,17 @@ function readSelection(body) {
   return { angle, angleDetail, render }
 }
 
-function buildPrompt(prompt, { angle, angleDetail, render }) {
-  return [prompt, angle.hint(angleDetail), render.hint, framing(render.backdrop ?? 'plain pure white background')].join(
+// Image models weight the start of a prompt most, so the view leads
+// ("Front orthographic elevation of <subject>"), followed by the full modifiers.
+const VIEW_LEADS = {
+  'Top View': () => 'Top-down orthographic plan view of',
+  Elevation: (detail) => `${detail} orthographic elevation (flat, straight-on, no perspective) of`,
+  Isometric: (detail) => `Isometric view from the ${COMPASS[detail].replace('the ', '')} of`,
+}
+
+function buildPrompt(prompt, { angle, angleDetail, render }, angleName) {
+  const lead = `${VIEW_LEADS[angleName](angleDetail)} ${prompt.replace(/^(a|an|the)\s+/i, (article) => article.toLowerCase())}`
+  return [lead, angle.hint(angleDetail), render.hint, framing(render.backdrop ?? 'plain pure white background')].join(
     ', ',
   )
 }
@@ -153,7 +162,7 @@ async function startImage(fal, body) {
 
   const { request_id } = await fal.queue.submit(ENDPOINTS.image, {
     input: {
-      prompt: buildPrompt(prompt, selection),
+      prompt: buildPrompt(prompt, selection, body.angle),
       image_size: 'square_hd',
       ...selection.render.recraft,
     },

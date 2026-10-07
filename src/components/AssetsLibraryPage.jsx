@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react'
 import { formatAud } from '../lib/catalogue'
+import { FLOWING_BORDER } from '../lib/flowingBorder'
 import { downloadAsset } from '../lib/download'
 import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
@@ -69,7 +70,7 @@ function buildCategoryOptions(categories) {
  * Option B - Flowing light border (in use): a 2px border with a silver-to-cyan
  *   beam sweeping around it (black base in light mode, graphite in dark mode),
  *   plus a soft drop shadow and a bold label.
- *   pill:  (see AI_PILL_EFFECTS.flowingBorder below)
+ *   pill:  FLOWING_BORDER from src/lib/flowingBorder.js (shared with the AI Studio nav button)
  *
  * Option C - Soft glass glow: a gentle pulsing outer glow.
  *   pill:  'border-neutral-300 shadow-lg shadow-neutral-900/10 animate-pulse motion-reduce:animate-none
@@ -82,8 +83,7 @@ const AI_PILL_EFFECTS = {
       'bg-[linear-gradient(110deg,#737373_35%,#e5e5e5_50%,#737373_65%)] bg-[length:200%_100%] bg-clip-text text-transparent animate-[ai-text-sweep_3.5s_linear_infinite] motion-reduce:animate-none',
   },
   flowingBorder: {
-    pill:
-      'border-2 border-transparent px-[15px] py-[7px] font-semibold text-neutral-950 shadow-lg shadow-neutral-400/50 [background:linear-gradient(var(--ai-fill),var(--ai-fill))_padding-box,conic-gradient(from_var(--ai-angle),var(--ai-edge)_0deg,var(--ai-edge)_190deg,var(--ai-tail)_250deg,var(--ai-beam)_300deg,var(--ai-flash)_318deg,var(--ai-beam)_328deg,var(--ai-edge)_350deg)_border-box] animate-[ai-border-flow_4s_linear_infinite] motion-reduce:animate-none hover:shadow-neutral-500/60 dark:text-white dark:shadow-white/20 dark:hover:shadow-white/30',
+    pill: `${FLOWING_BORDER} px-[15px] py-[7px]`,
     ownsBox: true, // 2px border, so it sets its own padding (same overall size as the other pills)
     label: '',
   },

@@ -1,4 +1,5 @@
 import { LayoutDashboard, LogOut, Presentation, Sparkles } from 'lucide-react'
+import { FLOWING_BORDER } from '../lib/flowingBorder'
 import ThemeToggle from '../theme/ThemeToggle'
 
 const quietButton =
@@ -20,8 +21,8 @@ export default function SiteHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/85 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/85">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-6">
-          <button type="button" onClick={() => onNavigate('library')} className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+          <button type="button" onClick={() => onNavigate('library')} aria-label="ArchiGrads home" className="flex shrink-0 items-center gap-2.5">
             {/* logo-mark.png is public/logo.png cropped to the cap. The mark is navy,
                 so dark mode flattens it to black and inverts it to pure white. */}
             <img
@@ -32,7 +33,8 @@ export default function SiteHeader({
               draggable={false}
               className="h-7 w-auto sm:h-8 dark:brightness-0 dark:invert"
             />
-            <span className="text-base font-semibold tracking-tight">ArchiGrads</span>
+            {/* Narrow phones show only the mark: the wordmark would collide with Login / Sign Up. */}
+            <span className="hidden text-xl font-bold tracking-tight min-[480px]:inline md:text-2xl">ArchiGrads</span>
           </button>
 
           <button
@@ -40,14 +42,17 @@ export default function SiteHeader({
             onClick={() => onNavigate('studio')}
             aria-current={page === 'studio' ? 'page' : undefined}
             aria-label="AI Studio"
-            className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+            // Same flowing light border as the "AI Generated" category pill; solid while on the page.
+            // 36px tall, like Login / Sign Up (text-sm, py-2 + a 1px border, or py-[6px] + 2px here).
+            className={`flex items-center gap-2 whitespace-nowrap rounded-md text-sm transition-[color,background-color,border-color,box-shadow] ${
               page === 'studio'
-                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border-neutral-300 text-neutral-700 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
+                ? 'border border-neutral-900 bg-neutral-900 px-3 py-[7px] font-medium text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                : `${FLOWING_BORDER} px-[11px] py-[6px]`
             }`}
           >
-            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            <span className="hidden sm:inline">AI Studio</span>
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            {/* Admins have more header controls, so their labels wait for lg widths. */}
+            <span className={user?.isAdmin ? 'hidden lg:inline' : 'hidden sm:inline'}>AI Studio</span>
           </button>
 
           {user?.isAdmin && (
@@ -55,6 +60,8 @@ export default function SiteHeader({
               type="button"
               onClick={() => onNavigate('dashboard')}
               aria-current={page === 'dashboard' ? 'page' : undefined}
+              aria-label="Dashboard"
+              title="Dashboard"
               className={`hidden items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors sm:flex ${
                 page === 'dashboard'
                   ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
@@ -62,7 +69,7 @@ export default function SiteHeader({
               }`}
             >
               <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              Dashboard
+              <span className="hidden lg:inline">Dashboard</span>
             </button>
           )}
         </div>
@@ -83,7 +90,7 @@ export default function SiteHeader({
                   }`}
                 >
                   <Presentation className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                  <span className="hidden md:inline">Presentation Mode</span>
+                  <span className="hidden lg:inline">Presentation Mode</span>
                   {/* Status light: off = hollow, on = filled. */}
                   <span
                     aria-hidden
@@ -102,7 +109,7 @@ export default function SiteHeader({
                 >
                   {user.name.slice(0, 1).toUpperCase()}
                 </span>
-                <span className="hidden max-w-[10rem] truncate text-sm sm:block">{user.name}</span>
+                <span className="hidden max-w-[10rem] truncate text-sm lg:block">{user.name}</span>
               </div>
               <button type="button" onClick={onLogout} className={`${quietButton} flex items-center gap-2`}>
                 <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden />

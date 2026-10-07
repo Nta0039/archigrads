@@ -108,7 +108,7 @@ async function startImage(fal, body) {
       image_size: 'square_hd',
       ...(STYLES[body.style] ?? STYLES[DEFAULT_STYLE]).recraft,
       // TEMP style comparison (removed after testing): allow-listed raster styles only.
-      ...(['digital_illustration/outline_details', 'digital_illustration/hand_drawn_outline'].includes(body.__testStyle)
+      ...(['vector_illustration/line_art', 'vector_illustration/thin'].includes(body.__testStyle)
         ? { style: body.__testStyle }
         : {}),
     },
@@ -133,6 +133,11 @@ async function advance(fal, id) {
     const imageUrl = image?.url
     if (!imageUrl) throw new HttpError(502, 'The AI model returned no image. Please try again.')
     console.log(`[fal] image ready: ${image.content_type ?? 'unknown type'}`)
+    // Vector styles return SVG, which the background remover cannot read. The
+    // browser cuts SVG line art out itself (see AIGeneratorPage.jsx).
+    if (/svg/i.test(image.content_type ?? '') || /\.svg(\?|$)/i.test(imageUrl)) {
+      return { stage: 'done', url: imageUrl, format: 'svg' }
+    }
     const { request_id } = await fal.queue.submit(ENDPOINTS.background, {
       input: {
         image_url: imageUrl,

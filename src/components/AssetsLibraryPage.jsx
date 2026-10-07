@@ -35,17 +35,62 @@ const TYPE_ICONS = {
   'AI Generated': Sparkles,
 }
 
-/** Category pills come from the categories table; unknown new ones get a folder icon. */
+const AI_CATEGORY = 'AI Generated'
+
+/**
+ * Category pills come from the categories table; unknown new ones get a folder icon.
+ * The community "AI Generated" category is promoted to sit right after "All".
+ */
 function buildCategoryOptions(categories) {
+  const ordered = [
+    ...categories.filter(({ name }) => name === AI_CATEGORY),
+    ...categories.filter(({ name }) => name !== AI_CATEGORY),
+  ]
   return [
     { label: 'All', icon: LayoutGrid, matches: () => true },
-    ...categories.map(({ name }) => ({
+    ...ordered.map(({ name }) => ({
       label: name,
       icon: TYPE_ICONS[name] ?? Folder,
       matches: (asset) => asset.type === name,
     })),
   ]
 }
+
+/*
+ * Highlight styles for the "AI Generated" pill, applied while it is not selected
+ * (selected, it uses the normal solid pill). Swap ACTIVE_AI_EFFECT to try another.
+ * Keyframes and colour tokens (--ai-*) live in src/index.css.
+ *
+ * Option A - Animated shimmer text: a silver gradient sweeps across the label.
+ *   pill:  'border-neutral-300 dark:border-neutral-700'
+ *   label: 'bg-[linear-gradient(110deg,#737373_35%,#e5e5e5_50%,#737373_65%)] bg-[length:200%_100%]
+ *           bg-clip-text text-transparent animate-[ai-text-sweep_3.5s_linear_infinite] motion-reduce:animate-none'
+ *
+ * Option B - Flowing light border (in use): a faint light travels slowly around
+ *   the outline; pale blue in dark mode, graphite in light mode.
+ *   pill:  (see AI_PILL_EFFECTS.flowingBorder below)
+ *
+ * Option C - Soft glass glow: a gentle pulsing outer glow.
+ *   pill:  'border-neutral-300 shadow-lg shadow-neutral-900/10 animate-pulse motion-reduce:animate-none
+ *           dark:border-neutral-600 dark:shadow-white/20'
+ */
+const AI_PILL_EFFECTS = {
+  shimmerText: {
+    pill: 'border-neutral-300 text-neutral-600 hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100',
+    label:
+      'bg-[linear-gradient(110deg,#737373_35%,#e5e5e5_50%,#737373_65%)] bg-[length:200%_100%] bg-clip-text text-transparent animate-[ai-text-sweep_3.5s_linear_infinite] motion-reduce:animate-none',
+  },
+  flowingBorder: {
+    pill:
+      'border-transparent text-neutral-800 [background:linear-gradient(var(--ai-fill),var(--ai-fill))_padding-box,conic-gradient(from_var(--ai-angle),var(--ai-edge)_0deg,var(--ai-edge)_250deg,var(--ai-glint)_315deg,var(--ai-edge)_360deg)_border-box] animate-[ai-border-flow_6s_linear_infinite] motion-reduce:animate-none hover:text-neutral-950 dark:text-neutral-200 dark:hover:text-white',
+    label: '',
+  },
+  softGlow: {
+    pill: 'border-neutral-300 text-neutral-700 shadow-lg shadow-neutral-900/10 animate-pulse motion-reduce:animate-none dark:border-neutral-600 dark:text-neutral-200 dark:shadow-white/20',
+    label: '',
+  },
+}
+const ACTIVE_AI_EFFECT = AI_PILL_EFFECTS.flowingBorder
 
 const PRICE_TYPES = [
   { value: 'free', label: 'Free', icon: Gift },
@@ -197,8 +242,15 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
               </Pill>
             ))}
             <span aria-hidden className="mx-1 hidden h-6 w-px self-center bg-neutral-300 sm:block dark:bg-neutral-700" />
+            {/* "AI Generated" gets ACTIVE_AI_EFFECT; options A/B/C are listed above AI_PILL_EFFECTS. */}
             {categoryOptions.map(({ label, icon }) => (
-              <Pill key={label} icon={icon} active={category === label} onClick={() => setCategory(label)}>
+              <Pill
+                key={label}
+                icon={icon}
+                active={category === label}
+                effect={label === AI_CATEGORY ? ACTIVE_AI_EFFECT : null}
+                onClick={() => setCategory(label)}
+              >
                 {label}
               </Pill>
             ))}
@@ -284,7 +336,8 @@ function FilterRow({ label, children }) {
   )
 }
 
-function Pill({ active, onClick, icon: Icon, children }) {
+function Pill({ active, onClick, icon: Icon, effect, children }) {
+  const highlighted = effect && !active
   return (
     <button
       type="button"
@@ -293,7 +346,9 @@ function Pill({ active, onClick, icon: Icon, children }) {
       className={`group/pill flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors sm:text-base ${
         active
           ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-          : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
+          : highlighted
+            ? effect.pill
+            : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
       }`}
     >
       {Icon && (
@@ -307,7 +362,7 @@ function Pill({ active, onClick, icon: Icon, children }) {
           aria-hidden
         />
       )}
-      {children}
+      {highlighted && effect.label ? <span className={effect.label}>{children}</span> : children}
     </button>
   )
 }

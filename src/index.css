@@ -63,3 +63,35 @@ body {
     transform: translateX(100%);
   }
 }
+
+/* AI Generated category pill (see AssetsLibraryPage.jsx, AI_PILL_EFFECTS).
+   --ai-angle is registered so the conic border gradient can rotate smoothly. */
+@property --ai-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+:root {
+  --ai-fill: #f5f5f5; /* page background, fills the pill inside its border */
+  --ai-edge: #d4d4d4; /* resting border */
+  --ai-glint: #404040; /* the light that travels around it */
+}
+
+.dark {
+  --ai-fill: #0a0a0a;
+  --ai-edge: #404040;
+  --ai-glint: #dbeafe; /* pale architectural blue */
+}
+
+@keyframes ai-border-flow {
+  to {
+    --ai-angle: 360deg;
+  }
+}
+
+@keyframes ai-text-sweep {
+  to {
+    background-position: -200% 0;
+  }
+}

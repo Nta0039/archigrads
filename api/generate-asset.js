@@ -111,6 +111,8 @@ async function startImage(fal, body) {
       ...(['vector_illustration/line_art', 'vector_illustration/thin'].includes(body.__testStyle)
         ? { style: body.__testStyle }
         : {}),
+      ...(body.__testColors === 'white-black' ? { colors: [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }] } : {}),
+      ...(body.__testColors === 'none' ? { colors: [] } : {}),
     },
   })
   return { id: jobId('image', request_id), stage: 'image', status: 'starting' }

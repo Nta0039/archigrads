@@ -54,44 +54,110 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 async function trimTransparent(url) {
   try {
     const blob = await (await fetch(url)).blob()
-    const bitmap = await createImageBitmap(blob)
-    const { width, height } = bitmap
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    ctx.drawImage(bitmap, 0, 0)
-    const alpha = ctx.getImageData(0, 0, width, height).data
-
-    let minX = width, minY = height, maxX = -1, maxY = -1
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (alpha[(y * width + x) * 4 + 3] > 8) {
-          if (x < minX) minX = x
-          if (x > maxX) maxX = x
-          if (y < minY) minY = y
-          if (y > maxY) maxY = y
-        }
-      }
-    }
-    if (maxX < 0) throw new Error('empty image')
-
-    const pad = Math.max(8, Math.round(Math.max(maxX - minX, maxY - minY) * 0.04))
-    const x0 = Math.max(0, minX - pad)
-    const y0 = Math.max(0, minY - pad)
-    const w = Math.min(width, maxX + pad + 1) - x0
-    const h = Math.min(height, maxY + pad + 1) - y0
-    const out = document.createElement('canvas')
-    out.width = w
-    out.height = h
-    out.getContext('2d').drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
-    const trimmed = await new Promise((resolve) => out.toBlob(resolve, 'image/png'))
-    if (!trimmed) throw new Error('could not encode PNG')
-    return { src: URL.createObjectURL(trimmed), width: w, height: h, local: true }
+    return await trimImage(await createImageBitmap(blob))
   } catch (error) {
     console.warn('[ai-studio] Could not trim the image; using it as returned.', error)
     return { src: url, width: null, height: null, local: false }
   }
+}
+
+/** Light enough to be the drawing's paper/background (fill="rgb(254,254,254)" etc.). */
+function isLightFill(fill) {
+  const value = String(fill ?? '').trim().toLowerCase()
+  if (value === 'white' || value === '#fff' || value === '#ffffff') return true
+  const rgb = value.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)
+  if (rgb) return rgb.slice(1).every((channel) => Number(channel) >= 240)
+  const hex = value.match(/^#([0-9a-f]{6})$/)
+  return hex ? [0, 2, 4].every((i) => parseInt(hex[1].slice(i, i + 2), 16) >= 240) : false
+}
+
+/** A shape covering the whole canvas: Recraft's background (a full-size rect or path). */
+function coversCanvas(element, width, height) {
+  if (element.tagName.toLowerCase() === 'rect') {
+    return (
+      Number(element.getAttribute('x') ?? 0) <= 0 &&
+      Number(element.getAttribute('y') ?? 0) <= 0 &&
+      Number(element.getAttribute('width')) >= width &&
+      Number(element.getAttribute('height')) >= height
+    )
+  }
+  const d = element.getAttribute('d') ?? ''
+  if (/[CQSTAHV]/i.test(d)) return false // only straight-line rectangles qualify
+  const numbers = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number)
+  const xs = numbers.filter((_, i) => i % 2 === 0)
+  const ys = numbers.filter((_, i) => i % 2 === 1)
+  return numbers.length >= 8 && Math.min(...xs) <= 0 && Math.min(...ys) <= 0 && Math.max(...xs) >= width && Math.max(...ys) >= height
+}
+
+/**
+ * Line drawings arrive as SVG. Deleting the full-canvas background shape makes
+ * everything outside the object transparent, while surfaces enclosed by lines
+ * (separate white shapes) stay solid. Returns a trimmed PNG for display and
+ * download, plus the cleaned SVG itself (a true vector for Rhino / Illustrator).
+ */
+async function prepareSvg(url) {
+  const text = await (await fetch(url)).text()
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
+  const svg = doc.documentElement
+  if (svg.tagName.toLowerCase() !== 'svg') throw new Error('not an SVG')
+  const [, , viewWidth, viewHeight] = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
+  const width = viewWidth || Number(svg.getAttribute('width')) || 1024
+  const height = viewHeight || Number(svg.getAttribute('height')) || 1024
+
+  for (const shape of svg.querySelectorAll('path, rect')) {
+    if (coversCanvas(shape, width, height) && isLightFill(shape.getAttribute('fill'))) shape.remove()
+  }
+  // Rasterise large for a crisp PNG.
+  const rasterWidth = 2048
+  const rasterHeight = Math.round((rasterWidth * height) / width)
+  svg.setAttribute('width', String(rasterWidth))
+  svg.setAttribute('height', String(rasterHeight))
+  const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' })
+  const svgSrc = URL.createObjectURL(svgBlob)
+
+  const image = new Image()
+  image.src = svgSrc
+  await image.decode()
+  const png = await trimImage(image, rasterWidth, rasterHeight)
+  return { ...png, svgSrc }
+}
+
+/** Crops the transparent margin of an image source and returns a local PNG blob URL. */
+async function trimImage(source, sourceWidth, sourceHeight) {
+  const width = sourceWidth ?? source.width
+  const height = sourceHeight ?? source.height
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  ctx.drawImage(source, 0, 0, width, height)
+  const alpha = ctx.getImageData(0, 0, width, height).data
+
+  let minX = width, minY = height, maxX = -1, maxY = -1
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (alpha[(y * width + x) * 4 + 3] > 8) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  }
+  if (maxX < 0) throw new Error('empty image')
+
+  const pad = Math.max(8, Math.round(Math.max(maxX - minX, maxY - minY) * 0.04))
+  const x0 = Math.max(0, minX - pad)
+  const y0 = Math.max(0, minY - pad)
+  const w = Math.min(width, maxX + pad + 1) - x0
+  const h = Math.min(height, maxY + pad + 1) - y0
+  const out = document.createElement('canvas')
+  out.width = w
+  out.height = h
+  out.getContext('2d').drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
+  const trimmed = await new Promise((resolve) => out.toBlob(resolve, 'image/png'))
+  if (!trimmed) throw new Error('could not encode PNG')
+  return { src: URL.createObjectURL(trimmed), width: w, height: h, local: true }
 }
 
 /** One call to the API; every failure becomes an Error with a readable message. */
@@ -155,10 +221,19 @@ export default function AIGeneratorPage({ onBack }) {
       while (isCurrent()) {
         if (job.stage === 'done') {
           setPhase('finishing')
-          const image = await trimTransparent(job.url)
+          // SVG line art is cut out by removing its background shape; raster
+          // images are already transparent and only need trimming.
+          const image =
+            job.format === 'svg'
+              ? await prepareSvg(job.url).catch((svgError) => {
+                  console.error('[ai-studio] Could not process the SVG:', svgError)
+                  throw new Error('The line drawing could not be prepared. Please try again.')
+                })
+              : await trimTransparent(job.url)
           if (!isCurrent()) return
           setResult((previous) => {
-            if (previous?.local) URL.revokeObjectURL(previous.src) // free the last blob
+            if (previous?.local) URL.revokeObjectURL(previous.src) // free the last blobs
+            if (previous?.svgSrc) URL.revokeObjectURL(previous.svgSrc)
             return { ...request, ...image, fileName: fileNameFor(request.prompt) }
           })
           setStatus('done')
@@ -332,6 +407,17 @@ export default function AIGeneratorPage({ onBack }) {
                     )}
                     Download PNG
                   </button>
+                  {result.svgSrc && (
+                    <button
+                      type="button"
+                      onClick={() => forceDownload([result.svgSrc], result.fileName.replace(/\.png$/, '.svg'))}
+                      title="Vector file for Rhino, Illustrator or AutoCAD"
+                      className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2.5 text-sm font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+                    >
+                      <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      SVG
+                    </button>
+                  )}
                 </div>
               </div>
             )}

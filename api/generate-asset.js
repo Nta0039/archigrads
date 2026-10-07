@@ -8,6 +8,8 @@ import { HttpError, sendError } from './_stripe.js'
  *      Recraft V3 on Fal has no transparent-background option, so:
  *   2. fal-ai/birefnet/v2 ("General Use (Heavy)", 2048 px, refined foreground)
  *      cuts the object out with very clean edges (fine branches, railings).
+ *   Line drawings use Recraft's vector line-art style and come back as SVG;
+ *   they skip step 2 and the browser removes the SVG's background shape.
  *
  * Both run on Fal's queue and nothing here waits for a model to finish (that
  * could exceed Vercel's function time limit). Instead:
@@ -48,8 +50,10 @@ const STYLES = {
       'isolated on a simple solid color background',
   },
   'Line Drawing (Make2D)': {
-    // Recraft's line-art style plus a black-only palette: no textures or greys.
-    recraft: { style: LINE_STYLE, colors: [{ r: 0, g: 0, b: 0 }] },
+    // Recraft's vector line-art style with a white + black palette: clean
+    // outlines and flat white surfaces (a black-only palette fills surfaces
+    // black). It returns SVG, which skips the background remover below.
+    recraft: { style: LINE_STYLE, colors: [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }] },
     suffix:
       ', pure minimalist black and white line drawing, clean continuous lines, architectural CAD style, ' +
       'Rhino Make2D, flat untextured white surfaces, absolute zero texture, no shading, no hatching, ' +
@@ -107,12 +111,6 @@ async function startImage(fal, body) {
       prompt: buildPrompt({ prompt, view: body.view, style: body.style }),
       image_size: 'square_hd',
       ...(STYLES[body.style] ?? STYLES[DEFAULT_STYLE]).recraft,
-      // TEMP style comparison (removed after testing): allow-listed raster styles only.
-      ...(['vector_illustration/line_art', 'vector_illustration/thin'].includes(body.__testStyle)
-        ? { style: body.__testStyle }
-        : {}),
-      ...(body.__testColors === 'white-black' ? { colors: [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }] } : {}),
-      ...(body.__testColors === 'none' ? { colors: [] } : {}),
     },
   })
   return { id: jobId('image', request_id), stage: 'image', status: 'starting' }

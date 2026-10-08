@@ -116,10 +116,15 @@ const RENDER_STYLES = {
     'Line Drawing': {
       // Named right after the subject: further back, Flux Dev renders a shaded model instead.
       medium: 'drawn as a black ink line drawing with white faces',
-      hint: 'minimalist architectural line drawing, clean continuous lines, architectural CAD style',
+      // Strict monochrome rule. Neither Flux endpoint (fal-ai/flux/dev, flux-schnell)
+      // accepts a negative_prompt, so every exclusion is spelled out here instead.
+      hint:
+        'pure monochrome black and white, strict architectural line art vector style, ONLY pure black continuous lines ' +
+        'and solid pure white internal faces. ABSOLUTELY NO colors, NO shadows, NO shading, NO ambient occlusion, ' +
+        'NO gradients, NO hatching. Clean Rhino Make2D flat style',
       detail: 'clean simple outlines',
-      background:
-        'pure black line drawing, Rhino Make2D style, strictly drawn on a flat, solid medium-grey background, zero texture, no shading',
+      // Grey screen last, so Bria cuts the outside away and keeps the white faces.
+      background: 'strictly placed on a flat, solid medium-grey background',
     },
     Textured: {
       hint: 'flat 2D graphic illustration, architectural diagram style, textured, no 3D depth, orthographic flat vector style',

@@ -80,24 +80,74 @@ function fileNameFor(prompt) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Line drawings are forced to two tones: image models (Flux Dev especially) add
+// soft grey shading however strict the prompt. Lines sit below ~96 luminance
+// and soft shading at 140-240; 96 keeps lines whole without turning shadows into black patches.
+const MONO_THRESHOLD = 96
+const luminance = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b
+
+/** Parses #rgb, #rrggbb or rgb(...) into [r, g, b]; anything else (none, url(#...)) is null. */
+function parseColour(value) {
+  const text = String(value ?? '').trim().toLowerCase()
+  const hex = text.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/)
+  if (hex) {
+    const digits = hex[1].length === 3 ? [...hex[1]].map((d) => d + d) : hex[1].match(/../g)
+    return digits.map((d) => parseInt(d, 16))
+  }
+  const rgb = text.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/)
+  return rgb ? rgb.slice(1, 4).map(Number) : null
+}
+
+/**
+ * Snaps every fill and stroke in an SVG to pure black or pure white. Gradient
+ * fills (url(#id)) become one solid tone from the gradient's average stop.
+ */
+function monochromeSvg(svg) {
+  const tone = (lum) => (lum < MONO_THRESHOLD ? '#000000' : '#ffffff')
+  const gradients = new Map()
+  for (const gradient of svg.querySelectorAll('linearGradient, radialGradient')) {
+    const stops = [...gradient.querySelectorAll('stop')]
+      .map((stop) => parseColour(stop.getAttribute('stop-color') ?? stop.style.getPropertyValue('stop-color')))
+      .filter(Boolean)
+    if (stops.length) gradients.set(gradient.id, tone(stops.reduce((sum, rgb) => sum + luminance(...rgb), 0) / stops.length))
+  }
+  const snap = (value) => {
+    const ref = String(value).match(/^url\(\s*['"]?#([^'")\s]+)/)
+    if (ref) return gradients.get(ref[1]) ?? value
+    const rgb = parseColour(value)
+    return rgb ? tone(luminance(...rgb)) : value
+  }
+  for (const element of [svg, ...svg.querySelectorAll('*')]) {
+    for (const name of ['fill', 'stroke', 'stop-color', 'color']) {
+      if (element.hasAttribute(name)) element.setAttribute(name, snap(element.getAttribute(name)))
+      const inline = element.style?.getPropertyValue(name)
+      if (inline) element.style.setProperty(name, snap(inline))
+    }
+  }
+}
+
 /**
  * Crops the transparent margin around the generated object (plus a little
  * padding) so the PNG drops straight into a drawing. The result lives in the
  * browser as a blob, so Download keeps working after the AI provider's link expires.
  * Falls back to the original image if anything goes wrong.
  */
-async function trimTransparent(url) {
+async function trimTransparent(url, { monochrome = false } = {}) {
   try {
     const blob = await (await fetch(url)).blob()
-    return await trimImage(await createImageBitmap(blob))
+    return await trimImage(await createImageBitmap(blob), undefined, undefined, { monochrome })
   } catch (error) {
     console.warn('[ai-studio] Could not trim the image; using it as returned.', error)
     return { src: url, width: null, height: null, local: false }
   }
 }
 
-/** Crops the transparent margin of an image source and returns a local PNG blob URL. */
-async function trimImage(source, sourceWidth, sourceHeight) {
+/**
+ * Crops the transparent margin of an image source and returns a local PNG blob
+ * URL. monochrome: every visible pixel becomes pure black or white (alpha kept,
+ * so the cut-out edge stays smooth).
+ */
+async function trimImage(source, sourceWidth, sourceHeight, { monochrome = false } = {}) {
   const width = sourceWidth ?? source.width
   const height = sourceHeight ?? source.height
   const canvas = document.createElement('canvas')
@@ -105,7 +155,16 @@ async function trimImage(source, sourceWidth, sourceHeight) {
   canvas.height = height
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   ctx.drawImage(source, 0, 0, width, height)
-  const alpha = ctx.getImageData(0, 0, width, height).data
+  const pixels = ctx.getImageData(0, 0, width, height)
+  const alpha = pixels.data
+  if (monochrome) {
+    for (let i = 0; i < alpha.length; i += 4) {
+      if (!alpha[i + 3]) continue
+      const tone = luminance(alpha[i], alpha[i + 1], alpha[i + 2]) < MONO_THRESHOLD ? 0 : 255
+      alpha[i] = alpha[i + 1] = alpha[i + 2] = tone
+    }
+    ctx.putImageData(pixels, 0, 0)
+  }
 
   let minX = width, minY = height, maxX = -1, maxY = -1
   for (let y = 0; y < height; y++) {
@@ -139,10 +198,11 @@ async function trimImage(source, sourceWidth, sourceHeight) {
  * tracer keeps the full 1024 px canvas), and renders a trimmed PNG of it for
  * the library thumbnail. Returns the PNG fields plus svgSrc / svgText.
  */
-async function prepareVector(url) {
+async function prepareVector(url, { monochrome = false } = {}) {
   const text = await (await fetch(url)).text()
   const svg = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement
   if (svg.nodeName.toLowerCase() !== 'svg') throw new Error('The vectoriser did not return an SVG.')
+  if (monochrome) monochromeSvg(svg)
   const viewBox = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
   const width = viewBox[2] || parseFloat(svg.getAttribute('width')) || 1024
   const height = viewBox[3] || parseFloat(svg.getAttribute('height')) || 1024
@@ -249,6 +309,7 @@ export default function AIGeneratorPage({ onBack }) {
     const runId = ++runRef.current
     const isCurrent = () => runRef.current === runId
     const request = { prompt: prompt.trim(), format, angleLabel, styleLabel, engineLabel: engine.label }
+    const monochrome = dimension === '2D' && styleDetail === 'Line Drawing'
 
     setStatus('generating')
     setStartedAt(Date.now())
@@ -291,7 +352,10 @@ export default function AIGeneratorPage({ onBack }) {
               }
               updateSlot(entry.index, { phase: 'finishing' })
               // Every result is transparent; only the empty margin is trimmed.
-              const image = job.format === 'svg' ? await prepareVector(job.url) : await trimTransparent(job.url)
+              const image =
+                job.format === 'svg'
+                  ? await prepareVector(job.url, { monochrome })
+                  : await trimTransparent(job.url, { monochrome })
               if (isCurrent()) updateSlot(entry.index, { status: 'done', image })
               return true
             } catch (failure) {

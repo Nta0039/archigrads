@@ -6,18 +6,13 @@ import { HttpError, sendError } from './_stripe.js'
  * AI Studio: transparent PNGs per prompt (4 on Fal, 2 on Replicate).
  *
  *   Fal.ai (Premium)     fal-ai/flux/dev -> fal-ai/bria/background/remove
- *                        2D Line Drawing: Recraft V3 vector line art (clean
- *                        Make2D lines, returned as SVG; Flux cannot draw
- *                        clean CAD lines).
  *   Replicate (Standard) black-forest-labs/flux-schnell -> bria/remove-background
- *                        (Bria RMBG 2.0 semantic segmentation, same as the Fal
- *                        engine, so white surfaces inside the object stay opaque)
- *                        2D Line Drawing: flux-schnell only.
  *
- * Line drawings skip the cut-out on both engines: a segmentation model treats
- * the white faces between lines as background and hollows the drawing out.
- * They keep a solid white background (designers multiply them over plans, or
- * rely on the white to occlude what is behind).
+ * Every style, line drawings included, goes through the cut-out (Bria RMBG 2.0
+ * semantic segmentation). "Grey screen": the image model is told to draw on a
+ * flat medium-grey background, which contrasts with both white models and
+ * black lines, so the cut-out finds the object's outline and leaves white
+ * surfaces inside it opaque.
  *
  * Nothing here waits for a model to finish (that could exceed Vercel's
  * function time limit). The four jobs are started in parallel and the page
@@ -28,7 +23,7 @@ import { HttpError, sendError } from './_stripe.js'
  *   GET  /api/generate-asset?id=<job id>
  *        -> { id, stage: 'image' | 'background', status }   still working
  *        -> { id, stage: 'background' }   image done; cut-out started (poll the new id)
- *        -> { stage: 'done', url, format? }                 transparent PNG (or SVG)
+ *        -> { stage: 'done', url }                          transparent PNG
  *
  * Job ids are "<step>_<provider request id>". Only the steps below can ever be
  * queried, and every cut-out takes its image from the previous step here.
@@ -42,10 +37,8 @@ const IMAGES_PER_PROMPT = { fal: 4, replicate: 2 }
 
 const STEPS = {
   'fal-flux': { provider: 'fal', stage: 'image', endpoint: 'fal-ai/flux/dev', next: 'fal-bria' },
-  'fal-recraft': { provider: 'fal', stage: 'image', endpoint: 'fal-ai/recraft/v3/text-to-image' }, // line art: no cut-out
   'fal-bria': { provider: 'fal', stage: 'background', endpoint: 'fal-ai/bria/background/remove' },
   'rep-flux': { provider: 'replicate', stage: 'image', model: 'black-forest-labs/flux-schnell', next: 'rep-cutout' },
-  'rep-line': { provider: 'replicate', stage: 'image', model: 'black-forest-labs/flux-schnell' }, // line art: no cut-out
   'rep-cutout': { provider: 'replicate', stage: 'background', model: 'bria/remove-background' },
 }
 
@@ -70,42 +63,44 @@ const ANGLES = {
   },
 }
 
-/** Render style: dimension + detail -> hidden prompt (and, for line art, Recraft). */
+/**
+ * Render style: dimension + detail -> hidden prompt. `background` is the
+ * grey-screen instruction, placed last in the prompt.
+ */
+const GREY_SCREEN = 'strictly placed on a flat, solid medium-grey background, NO gradients, NO shadows on ground'
 const RENDER_STYLES = {
   '3D': {
-    Textured: { hint: 'highly detailed 3D render, realistic materials and textures, professional lighting, raytraced' },
+    Textured: {
+      hint: 'highly detailed 3D render, realistic materials and textures, professional lighting, raytraced',
+      background: GREY_SCREEN,
+    },
     'White Model': {
       hint: 'pure white architectural clay model, ambient occlusion, untextured, solid white monochrome plaster, soft studio lighting',
-      // A white model on a white backdrop is the hardest case for any cut-out.
-      backdrop: 'light grey background',
+      background: GREY_SCREEN,
     },
   },
   '2D': {
     'Line Drawing': {
-      hint: 'pure minimalist black and white line drawing, clean continuous lines, architectural CAD style, Rhino Make2D, zero texture, no shading, no gradients',
-      lineArt: true,
-      // Fal engine: Recraft vector line art with a white + black palette.
-      recraft: {
-        style: 'vector_illustration/line_art',
-        colors: [{ r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 0 }],
-      },
+      hint: 'minimalist architectural line drawing, clean continuous lines, architectural CAD style',
+      background:
+        'pure black line drawing, Rhino Make2D style, strictly drawn on a flat, solid medium-grey background, zero texture, no shading',
     },
     Textured: {
       hint: 'flat 2D graphic illustration, architectural diagram style, textured, no 3D depth, orthographic flat vector style',
+      background: GREY_SCREEN,
     },
   },
 }
 
 // "Transparent background" enforcers: image models cannot draw transparency,
-// so they get one isolated object on a plain backdrop that the cut-out removes.
+// so they get one isolated object on a grey screen that the cut-out removes.
 // None of the image models here accept a negative_prompt, so the exclusions
 // (floor tiles, shadows, pots, props...) are spelled out in the prompt itself.
 const ISOLATION =
   'strictly single isolated object, floating in absolute empty space, NO ground, NO floor, NO surface, ' +
   'NO shadow, NO background objects, NO context, NO setting, NO props'
-const framing = (backdrop) =>
+const FRAMING =
   `${ISOLATION}, solid opaque foreground object, highly detailed, centered and filling most of the frame, ` +
-  `isolated on a simple solid color ${backdrop}, ` +
   'no reflection, no text, no watermark, no border'
 
 /** Validates prompt, engine and the four selections (400 for anything the UI cannot produce). */
@@ -131,7 +126,8 @@ function readRequest(body) {
     `${angle.lead(angleDetail)} ${subject}`,
     angle.hint(angleDetail),
     render.hint,
-    framing(render.backdrop ?? 'pure white background'),
+    FRAMING,
+    render.background,
   ].join(', ')
   return { engine, render, fullPrompt }
 }
@@ -229,14 +225,11 @@ async function startJobs(body) {
   const { engine, render, fullPrompt } = readRequest(body)
   let stepName
   let input
-  if (engine === 'fal' && render.recraft) {
-    stepName = 'fal-recraft'
-    input = { prompt: fullPrompt, image_size: 'square_hd', ...render.recraft }
-  } else if (engine === 'fal') {
+  if (engine === 'fal') {
     stepName = 'fal-flux'
     input = { prompt: fullPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3.5, num_images: 1, output_format: 'png', enable_safety_checker: true }
   } else {
-    stepName = render.lineArt ? 'rep-line' : 'rep-flux'
+    stepName = 'rep-flux'
     // One prediction, two outputs: a single request stays inside Replicate's rate limit.
     const count = IMAGES_PER_PROMPT.replicate
     input = { prompt: fullPrompt, aspect_ratio: '1:1', num_outputs: count, output_format: 'png', go_fast: true, megapixels: '1' }
@@ -252,7 +245,7 @@ async function startJobs(body) {
 }
 
 async function advance(id) {
-  const match = /^(fal-flux|fal-recraft|fal-bria|rep-flux|rep-line|rep-cutout)_([A-Za-z0-9-]{8,80}?)(?:_([0-3]))?$/.exec(id)
+  const match = /^(fal-flux|fal-bria|rep-flux|rep-cutout)_([A-Za-z0-9-]{8,80}?)(?:_([0-3]))?$/.exec(id)
   if (!match) throw new HttpError(400, 'Invalid job id.')
   const [, stepName, requestId, outputIndex = '0'] = match
   const step = STEPS[stepName]
@@ -263,12 +256,6 @@ async function advance(id) {
 
   if (step.stage === 'background') return { stage: 'done', url: state.url }
 
-  // Line art: return the drawing as generated, white background included
-  // (SVG from Recraft, PNG from flux-schnell).
-  if (!step.next) {
-    const svg = /svg/i.test(state.contentType) || /\.svg(\?|$)/i.test(state.url)
-    return { stage: 'done', url: state.url, background: 'white', ...(svg && { format: 'svg' }) }
-  }
   let nextId
   try {
     nextId = await startStep(step.next, cutoutInput(step.next, state.url))

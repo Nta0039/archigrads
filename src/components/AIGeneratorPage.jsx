@@ -90,67 +90,6 @@ async function trimTransparent(url) {
   }
 }
 
-/** Light enough to be the drawing's paper/background (fill="rgb(254,254,254)" etc.). */
-function isLightFill(fill) {
-  const value = String(fill ?? '').trim().toLowerCase()
-  if (value === 'white' || value === '#fff' || value === '#ffffff') return true
-  const rgb = value.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)
-  if (rgb) return rgb.slice(1).every((channel) => Number(channel) >= 240)
-  const hex = value.match(/^#([0-9a-f]{6})$/)
-  return hex ? [0, 2, 4].every((i) => parseInt(hex[1].slice(i, i + 2), 16) >= 240) : false
-}
-
-/** A shape covering the whole canvas: Recraft's background (a full-size rect or path). */
-function coversCanvas(element, width, height) {
-  if (element.tagName.toLowerCase() === 'rect') {
-    return (
-      Number(element.getAttribute('x') ?? 0) <= 0 &&
-      Number(element.getAttribute('y') ?? 0) <= 0 &&
-      Number(element.getAttribute('width')) >= width &&
-      Number(element.getAttribute('height')) >= height
-    )
-  }
-  const d = element.getAttribute('d') ?? ''
-  if (/[CQSTAHV]/i.test(d)) return false // only straight-line rectangles qualify
-  const numbers = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number)
-  const xs = numbers.filter((_, i) => i % 2 === 0)
-  const ys = numbers.filter((_, i) => i % 2 === 1)
-  return numbers.length >= 8 && Math.min(...xs) <= 0 && Math.min(...ys) <= 0 && Math.max(...xs) >= width && Math.max(...ys) >= height
-}
-
-/**
- * Rasterises an SVG (Fal line drawings) to a PNG for display and download, and
- * keeps the SVG itself (a true vector for Rhino / Illustrator). Line drawings
- * keep their white background (keepBackground); otherwise the full-canvas
- * background shape is deleted so only the object remains.
- */
-async function prepareSvg(url, { keepBackground = false } = {}) {
-  const text = await (await fetch(url)).text()
-  const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
-  const svg = doc.documentElement
-  if (svg.tagName.toLowerCase() !== 'svg') throw new Error('not an SVG')
-  const [, , viewWidth, viewHeight] = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
-  const width = viewWidth || Number(svg.getAttribute('width')) || 1024
-  const height = viewHeight || Number(svg.getAttribute('height')) || 1024
-
-  for (const shape of keepBackground ? [] : svg.querySelectorAll('path, rect')) {
-    if (coversCanvas(shape, width, height) && isLightFill(shape.getAttribute('fill'))) shape.remove()
-  }
-  // Rasterise large for a crisp PNG.
-  const rasterWidth = 2048
-  const rasterHeight = Math.round((rasterWidth * height) / width)
-  svg.setAttribute('width', String(rasterWidth))
-  svg.setAttribute('height', String(rasterHeight))
-  const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' })
-  const svgSrc = URL.createObjectURL(svgBlob)
-
-  const image = new Image()
-  image.src = svgSrc
-  await image.decode()
-  const png = await trimImage(image, rasterWidth, rasterHeight)
-  return { ...png, svgSrc }
-}
-
 /** Crops the transparent margin of an image source and returns a local PNG blob URL. */
 async function trimImage(source, sourceWidth, sourceHeight) {
   const width = sourceWidth ?? source.width
@@ -296,11 +235,8 @@ export default function AIGeneratorPage({ onBack }) {
                 return false
               }
               updateSlot(entry.index, { phase: 'finishing' })
-              // Line drawings arrive with background 'white' and keep it (no
-              // cut-out); other images are already transparent and only need trimming.
-              const keepBackground = job.background === 'white'
-              const image =
-                job.format === 'svg' ? await prepareSvg(job.url, { keepBackground }) : await trimTransparent(job.url)
+              // Every style comes back transparent; only the empty margin is trimmed.
+              const image = await trimTransparent(job.url)
               if (isCurrent()) updateSlot(entry.index, { status: 'done', image })
               return true
             } catch (failure) {
@@ -376,7 +312,7 @@ export default function AIGeneratorPage({ onBack }) {
           Can't find the right asset?
         </h1>
         <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Describe it and get up to four PNG variations (transparent, or on white for line drawings), ready for your sections, plans and elevations.
+          Describe it and get up to four transparent PNG variations, ready for your sections, plans and elevations.
           Publish the best one to the community library.
         </p>
       </header>
@@ -533,7 +469,6 @@ export default function AIGeneratorPage({ onBack }) {
                 index={index}
                 run={run}
                 onDownload={() => forceDownload([slot.image.src], `${run.fileBase}-${index + 1}.png`)}
-                onDownloadSvg={() => forceDownload([slot.image.svgSrc], `${run.fileBase}-${index + 1}.svg`)}
                 onPublish={() => publish(index)}
               />
             ))}
@@ -569,7 +504,6 @@ function phaseOf(job) {
 
 function releaseImage(slot) {
   if (slot?.image?.local) URL.revokeObjectURL(slot.image.src)
-  if (slot?.image?.svgSrc) URL.revokeObjectURL(slot.image.svgSrc)
 }
 
 function ElapsedTime({ startedAt, done, total }) {
@@ -587,7 +521,7 @@ function ElapsedTime({ startedAt, done, total }) {
 }
 
 /** One cell of the 2 x 2 grid: skeleton while generating, then the image and its actions. */
-function ResultCard({ slot, index, run, onDownload, onDownloadSvg, onPublish }) {
+function ResultCard({ slot, index, run, onDownload, onPublish }) {
   const publishState = slot.publish?.state ?? 'idle'
   const published = publishState === 'published'
 
@@ -638,16 +572,6 @@ function ResultCard({ slot, index, run, onDownload, onDownloadSvg, onPublish }) 
             <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Download
           </button>
-          {slot.image.svgSrc && (
-            <button
-              type="button"
-              onClick={onDownloadSvg}
-              title="Vector file for Rhino, Illustrator or AutoCAD"
-              className="inline-flex items-center justify-center rounded-md border border-neutral-300 px-2.5 py-2 text-xs font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
-            >
-              SVG
-            </button>
-          )}
           <button
             type="button"
             onClick={onPublish}

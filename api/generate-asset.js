@@ -3,10 +3,13 @@ import Replicate from 'replicate'
 import { HttpError, sendError } from './_stripe.js'
 
 /**
- * AI Studio: transparent PNGs per prompt (4 on Fal, 2 on Replicate).
+ * AI Studio: transparent PNGs or SVGs per prompt (4 on Fal, 2 on Replicate).
  *
  *   Fal.ai (Premium)     fal-ai/flux/dev -> fal-ai/bria/background/remove
  *   Replicate (Standard) black-forest-labs/flux-schnell -> bria/remove-background
+ *   .svg (either engine) ... -> recraft-ai/recraft-vectorize on Replicate, which
+ *                        traces the transparent PNG into vector paths. 2D styles
+ *                        only: 3D renders trace into huge, unusable path soups.
  *
  * Every style, line drawings included, goes through the cut-out (Bria RMBG 2.0
  * semantic segmentation). "Grey screen": the image model is told to draw on a
@@ -23,7 +26,7 @@ import { HttpError, sendError } from './_stripe.js'
  *   GET  /api/generate-asset?id=<job id>
  *        -> { id, stage: 'image' | 'background', status }   still working
  *        -> { id, stage: 'background' }   image done; cut-out started (poll the new id)
- *        -> { stage: 'done', url }                          transparent PNG
+ *        -> { stage: 'done', url, format? }                 transparent PNG (format 'svg': SVG)
  *
  * Job ids are "<step>_<provider request id>". Only the steps below can ever be
  * queried, and every cut-out takes its image from the previous step here.
@@ -35,12 +38,42 @@ import { HttpError, sendError } from './_stripe.js'
  */
 const IMAGES_PER_PROMPT = { fal: 4, replicate: 2 }
 
-const STEPS = {
-  'fal-flux': { provider: 'fal', stage: 'image', endpoint: 'fal-ai/flux/dev', next: 'fal-bria' },
-  'fal-bria': { provider: 'fal', stage: 'background', endpoint: 'fal-ai/bria/background/remove' },
-  'rep-flux': { provider: 'replicate', stage: 'image', model: 'black-forest-labs/flux-schnell', next: 'rep-cutout' },
-  'rep-cutout': { provider: 'replicate', stage: 'background', model: 'bria/remove-background' },
+const FAL_FLUX = { provider: 'fal', stage: 'image', endpoint: 'fal-ai/flux/dev' }
+const FAL_BRIA = {
+  provider: 'fal',
+  stage: 'background',
+  endpoint: 'fal-ai/bria/background/remove',
+  input: (url) => ({ image_url: url }),
 }
+const REP_FLUX = { provider: 'replicate', stage: 'image', model: 'black-forest-labs/flux-schnell' }
+const REP_BRIA = {
+  provider: 'replicate',
+  stage: 'background',
+  model: 'bria/remove-background',
+  // Returns an RGBA PNG; the RMBG mask keeps white areas inside the object opaque.
+  input: (url) => ({ image_url: url, preserve_alpha: true, content_moderation: false }),
+}
+
+// Each step names the next one, so a job id ("<step>_<request id>") carries the
+// whole remaining pipeline; "-v" chains end in vectorisation.
+const STEPS = {
+  'fal-flux': { ...FAL_FLUX, next: 'fal-bria' },
+  'fal-bria': FAL_BRIA,
+  'rep-flux': { ...REP_FLUX, next: 'rep-cutout' },
+  'rep-cutout': REP_BRIA,
+  'fal-flux-v': { ...FAL_FLUX, next: 'fal-bria-v' },
+  'fal-bria-v': { ...FAL_BRIA, next: 'rep-vector' },
+  'rep-flux-v': { ...REP_FLUX, next: 'rep-cutout-v' },
+  'rep-cutout-v': { ...REP_BRIA, next: 'rep-vector' },
+  'rep-vector': {
+    provider: 'replicate',
+    stage: 'vector',
+    model: 'recraft-ai/recraft-vectorize',
+    input: (url) => ({ image: url }),
+  },
+}
+const JOB_ID = new RegExp(`^(${Object.keys(STEPS).join('|')})_([A-Za-z0-9-]{8,80}?)(?:_([0-3]))?$`)
+const FORMATS = ['.png', '.svg']
 
 /** Camera angle (Rhino-style viewports). Values must match the AI Studio controls. */
 const COMPASS = { NW: 'the north-west', NE: 'the north-east', SE: 'the south-east', SW: 'the south-west' }
@@ -122,6 +155,11 @@ function readRequest(body) {
   }
   const render = RENDER_STYLES[body?.dimension]?.[body?.styleDetail]
   if (!render) throw new HttpError(400, 'Please choose a render style.')
+  const format = body?.format ?? '.png'
+  if (!FORMATS.includes(format)) throw new HttpError(400, 'Please choose .png or .svg.')
+  if (format === '.svg' && body.dimension !== '2D') {
+    throw new HttpError(400, 'SVG output is available for 2D styles only (Line Drawing or Textured).')
+  }
 
   // Image models weight the start of a prompt most, so the view leads.
   const subject = prompt.replace(/^(a|an|the)\s+/i, (article) => article.toLowerCase())
@@ -132,7 +170,7 @@ function readRequest(body) {
     framing(render.detail),
     render.background,
   ].join(', ')
-  return { engine, render, fullPrompt }
+  return { engine, vector: format === '.svg', fullPrompt }
 }
 
 // --- providers ----------------------------------------------------------------
@@ -156,7 +194,7 @@ async function startStep(stepName, input) {
     const { request_id } = await getFal().queue.submit(step.endpoint, { input })
     return request_id
   }
-  // Both Replicate models are official, so they start by name (no version id).
+  // All Replicate models used here are official, so they start by name (no version id).
   const prediction = await getReplicate().predictions.create({ model: step.model, input })
   return prediction.id
 }
@@ -184,16 +222,10 @@ async function readStep(stepName, requestId, outputIndex = 0) {
     throw new HttpError(500, `Replicate prediction ${prediction.status}: ${prediction.error ?? 'no reason given'}`)
   }
   if (prediction.status !== 'succeeded') return { done: false, status: prediction.status }
-  // Flux returns an array of URLs (one per output); the cut-out model returns
-  // a single URL string. Either may be a FileOutput object, so stringify it.
+  // Flux returns an array of URLs (one per output); the cut-out and vectorise
+  // models return a single URL string. Any may be a FileOutput object, so stringify it.
   const output = Array.isArray(prediction.output) ? prediction.output[outputIndex] : prediction.output
   return { done: true, url: output ? String(output) : '', contentType: '' }
-}
-
-function cutoutInput(stepName, imageUrl) {
-  if (stepName === 'fal-bria') return { image_url: imageUrl }
-  // Returns an RGBA PNG; the RMBG mask keeps white areas inside the object opaque.
-  return { image_url: imageUrl, preserve_alpha: true, content_moderation: false }
 }
 
 /** Provider failures -> messages the page can show. */
@@ -225,14 +257,15 @@ function toHttpError(error) {
 // --- handlers -------------------------------------------------------------------
 
 async function startJobs(body) {
-  const { engine, render, fullPrompt } = readRequest(body)
+  const { engine, vector, fullPrompt } = readRequest(body)
+  const suffix = vector ? '-v' : ''
   let stepName
   let input
   if (engine === 'fal') {
-    stepName = 'fal-flux'
+    stepName = `fal-flux${suffix}`
     input = { prompt: fullPrompt, image_size: 'square_hd', num_inference_steps: 28, guidance_scale: 3.5, num_images: 1, output_format: 'png', enable_safety_checker: true }
   } else {
-    stepName = 'rep-flux'
+    stepName = `rep-flux${suffix}`
     // One prediction, two outputs: a single request stays inside Replicate's rate limit.
     const count = IMAGES_PER_PROMPT.replicate
     input = { prompt: fullPrompt, aspect_ratio: '1:1', num_outputs: count, output_format: 'png', go_fast: true, megapixels: '1' }
@@ -248,27 +281,37 @@ async function startJobs(body) {
 }
 
 async function advance(id) {
-  const match = /^(fal-flux|fal-bria|rep-flux|rep-cutout)_([A-Za-z0-9-]{8,80}?)(?:_([0-3]))?$/.exec(id)
+  const match = JOB_ID.exec(id)
   if (!match) throw new HttpError(400, 'Invalid job id.')
   const [, stepName, requestId, outputIndex = '0'] = match
   const step = STEPS[stepName]
+  // Low-credit Replicate accounts allow about one request at a time, and several
+  // slots reach their Replicate steps together. A rate-limited (429) read or
+  // start is not a failure: keep this id and try again on the next poll.
+  const busy = { id, stage: step.stage, status: 'processing' }
+  const rateLimited = (error) => error?.response?.status === 429
 
-  const state = await readStep(stepName, requestId, Number(outputIndex))
+  let state
+  try {
+    state = await readStep(stepName, requestId, Number(outputIndex))
+  } catch (error) {
+    if (step.provider === 'replicate' && rateLimited(error)) return busy
+    throw error
+  }
   if (!state.done) return { id, stage: step.stage, status: state.status }
   if (!state.url) throw new HttpError(502, 'The AI model returned no image. Please try again.')
 
-  if (step.stage === 'background') return { stage: 'done', url: state.url }
+  if (!step.next) return { stage: 'done', url: state.url, ...(step.stage === 'vector' && { format: 'svg' }) }
 
+  const next = STEPS[step.next]
   let nextId
   try {
-    nextId = await startStep(step.next, cutoutInput(step.next, state.url))
+    nextId = await startStep(step.next, next.input(state.url))
   } catch (error) {
-    // Both Replicate slots finish together; if the second cut-out is rate
-    // limited, keep this id and start it on the next poll instead of failing.
-    if (step.provider === 'replicate' && error?.response?.status === 429) return { id, stage: 'image', status: 'processing' }
+    if (next.provider === 'replicate' && rateLimited(error)) return busy
     throw error
   }
-  return { id: `${step.next}_${nextId}`, stage: 'background', status: 'starting' }
+  return { id: `${step.next}_${nextId}`, stage: next.stage, status: 'starting' }
 }
 
 export default async function handler(req, res) {

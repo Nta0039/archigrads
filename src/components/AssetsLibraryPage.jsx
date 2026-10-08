@@ -100,7 +100,7 @@ const PRICE_TYPES = [
 ]
 
 // Format pills list whatever formats the library contains, in this order first.
-const FORMAT_ORDER = ['.psd', '.ai', '.png', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
+const FORMAT_ORDER = ['.psd', '.ai', '.png', '.svg', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
 
 function collectFormats(assets) {
   const present = new Set(assets.flatMap((asset) => asset.formats))

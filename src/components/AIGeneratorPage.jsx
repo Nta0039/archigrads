@@ -18,11 +18,16 @@ import { forceDownload } from '../lib/download'
 import { invalidateCatalogue } from '../lib/useCatalogue'
 
 /**
- * AI Studio: prompt -> /api/generate-asset -> transparent PNG variations
+ * AI Studio: prompt -> /api/generate-asset -> transparent PNG or SVG variations
  * (2 x 2 grid on Fal, 2 on Replicate). The API starts the jobs in parallel and
  * the page polls them, so slow model start-ups never hit a request time limit.
  * Any result can be published to the public library via /api/publish.
  */
+// Output format tabs above the prompt. SVG is traced from the transparent PNG,
+// which only gives usable paths for flat 2D styles, so 3D is locked while it is on.
+const FORMATS = ['.png', '.svg']
+const SVG_DIMENSIONS = ['2D']
+
 const ENGINES = [
   { value: 'fal', label: 'Fal.ai (Premium)', images: 4 },
   { value: 'replicate', label: 'Replicate (Standard)', images: 2 },
@@ -54,7 +59,8 @@ const PHASES = {
   sending: { label: 'Sending your prompt…', progress: 8 },
   queued: { label: 'Waking up the AI model…', hint: 'The first run after a quiet spell can take a little longer.', progress: 18 },
   image: { label: 'Rendering your asset…', progress: 45 },
-  background: { label: 'Removing the background…', progress: 80 },
+  background: { label: 'Removing the background…', progress: 72 },
+  vector: { label: 'Tracing vector paths…', progress: 88 },
   finishing: { label: 'Trimming the edges…', progress: 95 },
 }
 
@@ -125,7 +131,46 @@ async function trimImage(source, sourceWidth, sourceHeight) {
   out.getContext('2d').drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
   const trimmed = await new Promise((resolve) => out.toBlob(resolve, 'image/png'))
   if (!trimmed) throw new Error('could not encode PNG')
-  return { src: URL.createObjectURL(trimmed), width: w, height: h, local: true }
+  return { src: URL.createObjectURL(trimmed), width: w, height: h, local: true, box: { x0, y0, w, h } }
+}
+
+/**
+ * Vector results: crops the SVG to the drawing by tightening its viewBox (the
+ * tracer keeps the full 1024 px canvas), and renders a trimmed PNG of it for
+ * the library thumbnail. Returns the PNG fields plus svgSrc / svgText.
+ */
+async function prepareVector(url) {
+  const text = await (await fetch(url)).text()
+  const svg = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement
+  if (svg.nodeName.toLowerCase() !== 'svg') throw new Error('The vectoriser did not return an SVG.')
+  const viewBox = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
+  const width = viewBox[2] || parseFloat(svg.getAttribute('width')) || 1024
+  const height = viewBox[3] || parseFloat(svg.getAttribute('height')) || 1024
+  const [vx, vy] = viewBox.length === 4 ? viewBox : [0, 0]
+
+  // Rasterise once to find the drawing's bounds (and to make the thumbnail).
+  const scale = 1024 / Math.max(width, height)
+  svg.setAttribute('viewBox', `${vx} ${vy} ${width} ${height}`)
+  svg.setAttribute('width', String(Math.round(width * scale)))
+  svg.setAttribute('height', String(Math.round(height * scale)))
+  const fullSrc = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }))
+  let png
+  try {
+    const image = new Image()
+    image.src = fullSrc
+    await image.decode()
+    png = await trimImage(image, Math.round(width * scale), Math.round(height * scale))
+  } finally {
+    URL.revokeObjectURL(fullSrc)
+  }
+
+  const { x0, y0, w, h } = png.box
+  const round = (value) => Math.round(value * 100) / 100
+  svg.setAttribute('viewBox', [vx + x0 / scale, vy + y0 / scale, w / scale, h / scale].map(round).join(' '))
+  svg.setAttribute('width', String(round(w / scale)))
+  svg.setAttribute('height', String(round(h / scale)))
+  const svgText = new XMLSerializer().serializeToString(svg)
+  return { ...png, svgText, svgSrc: URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' })) }
 }
 
 /** One call to the API; every failure becomes an Error with a readable message. */
@@ -149,6 +194,7 @@ async function callApi(url, options) {
 
 export default function AIGeneratorPage({ onBack }) {
   const [prompt, setPrompt] = useState('')
+  const [format, setFormat] = useState(FORMATS[0])
   const [engineLabel, setEngineLabel] = useState(ENGINES[0].label)
   const [angle, setAngle] = useState('Top View')
   const [angleDetail, setAngleDetail] = useState(null)
@@ -156,7 +202,7 @@ export default function AIGeneratorPage({ onBack }) {
   const [styleDetail, setStyleDetail] = useState('Textured')
   const [status, setStatus] = useState('idle') // 'idle' | 'generating' | 'done' | 'error'
   const [startedAt, setStartedAt] = useState(0)
-  const [run, setRun] = useState(null) // { prompt, angleLabel, styleLabel, engineLabel, fileBase }
+  const [run, setRun] = useState(null) // { prompt, format, angleLabel, styleLabel, engineLabel, fileBase }
   const [slots, setSlots] = useState([]) // one per image: { status, phase, image, error, publish }
   const [error, setError] = useState('')
   const runRef = useRef(0) // increments per run; an older run stops when it changes
@@ -185,6 +231,15 @@ export default function AIGeneratorPage({ onBack }) {
     setDimension(value)
     setStyleDetail(null)
   }
+  const chooseFormat = (value) => {
+    setFormat(value)
+    // SVG needs a 2D style; switch over from 3D rather than leaving a blocked selection.
+    if (value === '.svg' && !SVG_DIMENSIONS.includes(dimension)) {
+      setDimension('2D')
+      setStyleDetail('Line Drawing')
+    }
+  }
+  const lockedDimensions = format === '.svg' ? DIMENSIONS.map((option) => option.value).filter((value) => !SVG_DIMENSIONS.includes(value)) : []
 
   const updateSlot = (index, patch) =>
     setSlots((current) => current.map((slot, i) => (i === index ? { ...slot, ...patch } : slot)))
@@ -193,7 +248,7 @@ export default function AIGeneratorPage({ onBack }) {
     if (!canGenerate) return
     const runId = ++runRef.current
     const isCurrent = () => runRef.current === runId
-    const request = { prompt: prompt.trim(), angleLabel, styleLabel, engineLabel: engine.label }
+    const request = { prompt: prompt.trim(), format, angleLabel, styleLabel, engineLabel: engine.label }
 
     setStatus('generating')
     setStartedAt(Date.now())
@@ -208,7 +263,7 @@ export default function AIGeneratorPage({ onBack }) {
       const { jobs } = await callApi('/api/generate-asset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: request.prompt, engine: engine.value, angle, angleDetail, dimension, styleDetail }),
+        body: JSON.stringify({ prompt: request.prompt, engine: engine.value, format, angle, angleDetail, dimension, styleDetail }),
       })
       if (!isCurrent()) return
       // The API may return fewer jobs than placeholders shown; drop the extras.
@@ -235,8 +290,8 @@ export default function AIGeneratorPage({ onBack }) {
                 return false
               }
               updateSlot(entry.index, { phase: 'finishing' })
-              // Every style comes back transparent; only the empty margin is trimmed.
-              const image = await trimTransparent(job.url)
+              // Every result is transparent; only the empty margin is trimmed.
+              const image = job.format === 'svg' ? await prepareVector(job.url) : await trimTransparent(job.url)
               if (isCurrent()) updateSlot(entry.index, { status: 'done', image })
               return true
             } catch (failure) {
@@ -274,11 +329,15 @@ export default function AIGeneratorPage({ onBack }) {
 
     updateSlot(index, { publish: { state: 'publishing' } })
     try {
-      const png = await pngForUpload(slot.image.src)
+      // Vector results: the SVG is the source file and a PNG is the thumbnail,
+      // so the PNG gets a smaller share of the request size limit.
+      const svg = slot.image.svgText
+      if (svg && svg.length > 2.5 * 1024 * 1024) throw new Error('This SVG is too detailed to publish (over 2.5 MB).')
+      const png = await pngForUpload(slot.image.src, svg ? 1024 * 1024 : undefined)
       await callApi('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, image: await blobToBase64(png), styleLabel: run?.styleLabel }),
+        body: JSON.stringify({ title, image: await blobToBase64(png), svg, styleLabel: run?.styleLabel }),
       })
       invalidateCatalogue() // the library shows it on its next load
       updateSlot(index, { publish: { state: 'published', title } })
@@ -312,7 +371,7 @@ export default function AIGeneratorPage({ onBack }) {
           Can't find the right asset?
         </h1>
         <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Describe it and get up to four transparent PNG variations, ready for your sections, plans and elevations.
+          Describe it and get up to four transparent PNG or vector SVG variations, ready for your sections, plans and elevations.
           Publish the best one to the community library.
         </p>
       </header>
@@ -325,6 +384,28 @@ export default function AIGeneratorPage({ onBack }) {
         }}
         className="mx-auto mt-12 max-w-3xl rounded-lg border border-neutral-300 bg-white p-2 transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-neutral-100"
       >
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pt-1">
+          <div role="group" aria-label="Output format" className="flex gap-1">
+            {FORMATS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => chooseFormat(option)}
+                aria-pressed={format === option}
+                className={`rounded-md border px-3 py-1 font-mono text-xs font-medium tracking-tight transition-colors ${
+                  format === option
+                    ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                    : 'border-neutral-200 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+            {format === '.svg' ? 'Vector paths for Illustrator, Rhino or AutoCAD · 2D styles only' : 'Transparent raster image'}
+          </p>
+        </div>
         <label htmlFor="ai-prompt" className="sr-only">
           Describe the asset you need
         </label>
@@ -364,6 +445,8 @@ export default function AIGeneratorPage({ onBack }) {
             detail={styleDetail}
             onDetailChange={setStyleDetail}
             detailLabel="Finish"
+            disabledOptions={lockedDimensions}
+            disabledReason="Not available for .svg"
           />
         </div>
         <div className="mt-3 grid gap-3 border-t border-neutral-200 px-2 pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end dark:border-neutral-800">
@@ -468,7 +551,11 @@ export default function AIGeneratorPage({ onBack }) {
                 slot={slot}
                 index={index}
                 run={run}
-                onDownload={() => forceDownload([slot.image.src], `${run.fileBase}-${index + 1}.png`)}
+                onDownload={() =>
+                  slot.image.svgSrc
+                    ? forceDownload([slot.image.svgSrc], `${run.fileBase}-${index + 1}.svg`)
+                    : forceDownload([slot.image.src], `${run.fileBase}-${index + 1}.png`)
+                }
                 onPublish={() => publish(index)}
               />
             ))}
@@ -477,8 +564,8 @@ export default function AIGeneratorPage({ onBack }) {
           {status === 'done' && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                {run.engineLabel} · {run.angleLabel} · {run.styleLabel}. Images are trimmed to the object; download or
-                publish to keep them.
+                {run.engineLabel} · {run.angleLabel} · {run.styleLabel} · {run.format}. Results are trimmed to the
+                object; download or publish to keep them.
               </p>
               <button
                 type="button"
@@ -499,11 +586,13 @@ export default function AIGeneratorPage({ onBack }) {
 
 function phaseOf(job) {
   if (job.stage === 'image') return job.status === 'starting' ? 'queued' : 'image'
-  return job.stage === 'background' ? 'background' : 'finishing'
+  if (job.stage === 'background' || job.stage === 'vector') return job.stage
+  return 'finishing'
 }
 
 function releaseImage(slot) {
   if (slot?.image?.local) URL.revokeObjectURL(slot.image.src)
+  if (slot?.image?.svgSrc) URL.revokeObjectURL(slot.image.svgSrc)
 }
 
 function ElapsedTime({ startedAt, done, total }) {
@@ -552,7 +641,7 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
         )}
         {slot.status === 'done' && (
           <img
-            src={slot.image.src}
+            src={slot.image.svgSrc ?? slot.image.src}
             alt={`Variation ${index + 1}: ${run.prompt}`}
             className="fade-in absolute inset-0 h-full w-full object-contain p-4"
           />
@@ -570,7 +659,7 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
             className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-2 text-xs font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
           >
             <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            Download
+            Download {slot.image.svgSrc ? '.svg' : '.png'}
           </button>
           <button
             type="button"
@@ -604,9 +693,8 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
 }
 
 /** Re-encodes smaller if needed so the upload fits Vercel's request size limit. */
-async function pngForUpload(src) {
+async function pngForUpload(src, LIMIT = 3 * 1024 * 1024) {
   const blob = await (await fetch(src)).blob()
-  const LIMIT = 3 * 1024 * 1024
   if (blob.type === 'image/png' && blob.size <= LIMIT) return blob
   let bitmap = await createImageBitmap(blob)
   let scale = Math.min(1, Math.sqrt(LIMIT / blob.size))
@@ -655,7 +743,18 @@ function ErrorState({ message, onRetry }) {
  * Viewport-style control: main options as a segmented bar; when the chosen
  * option has sub-options they slide open in a nested panel underneath.
  */
-function CascadeControl({ icon: Icon, label, options, value, onChange, detail, onDetailChange, detailLabel }) {
+function CascadeControl({
+  icon: Icon,
+  label,
+  options,
+  value,
+  onChange,
+  detail,
+  onDetailChange,
+  detailLabel,
+  disabledOptions,
+  disabledReason,
+}) {
   const details = detailsOf(options, value)
   const open = details.length > 0
 
@@ -665,7 +764,15 @@ function CascadeControl({ icon: Icon, label, options, value, onChange, detail, o
         <Icon className="h-3 w-3" strokeWidth={2} aria-hidden />
         {label}
       </p>
-      <Segmented label={label} options={options.map((option) => option.value)} value={value} onChange={onChange} stretch />
+      <Segmented
+        label={label}
+        options={options.map((option) => option.value)}
+        value={value}
+        onChange={onChange}
+        disabledOptions={disabledOptions}
+        disabledReason={disabledReason}
+        stretch
+      />
 
       {/* grid-rows 0fr -> 1fr animates the panel's real height smoothly */}
       <div
@@ -710,24 +817,31 @@ function CascadeControl({ icon: Icon, label, options, value, onChange, detail, o
   )
 }
 
-function Segmented({ label, options, value, onChange, stretch = false }) {
+function Segmented({ label, options, value, onChange, stretch = false, disabledOptions = [], disabledReason }) {
   return (
     <div role="group" aria-label={label} className={`flex rounded-md border border-neutral-200 p-0.5 text-xs dark:border-neutral-700 ${stretch ? 'w-full' : ''}`}>
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => onChange(option)}
-          aria-pressed={value === option}
-          className={`rounded px-2.5 py-1.5 font-medium transition-colors ${stretch ? 'flex-1' : ''} ${
-            value === option
-              ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
-          }`}
-        >
-          {option}
-        </button>
-      ))}
+      {options.map((option) => {
+        const disabled = disabledOptions.includes(option)
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            aria-pressed={value === option}
+            disabled={disabled}
+            title={disabled ? disabledReason : undefined}
+            className={`rounded px-2.5 py-1.5 font-medium transition-colors ${stretch ? 'flex-1' : ''} ${
+              disabled
+                ? 'cursor-not-allowed text-neutral-300 line-through decoration-1 dark:text-neutral-600'
+                : value === option
+                  ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                  : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
+            }`}
+          >
+            {option}
+          </button>
+        )
+      })}
     </div>
   )
 }

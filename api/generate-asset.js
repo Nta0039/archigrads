@@ -81,7 +81,10 @@ const RENDER_STYLES = {
   },
   '2D': {
     'Line Drawing': {
+      // Named right after the subject: further back, Flux Dev renders a shaded model instead.
+      medium: 'drawn as a black ink line drawing with white faces',
       hint: 'minimalist architectural line drawing, clean continuous lines, architectural CAD style',
+      detail: 'clean simple outlines',
       background:
         'pure black line drawing, Rhino Make2D style, strictly drawn on a flat, solid medium-grey background, zero texture, no shading',
     },
@@ -99,8 +102,8 @@ const RENDER_STYLES = {
 const ISOLATION =
   'strictly single isolated object, floating in absolute empty space, NO ground, NO floor, NO surface, ' +
   'NO shadow, NO background objects, NO context, NO setting, NO props'
-const FRAMING =
-  `${ISOLATION}, solid opaque foreground object, highly detailed, centered and filling most of the frame, ` +
+const framing = (detail = 'highly detailed') =>
+  `${ISOLATION}, solid opaque foreground object, ${detail}, centered and filling most of the frame, ` +
   'no reflection, no text, no watermark, no border'
 
 /** Validates prompt, engine and the four selections (400 for anything the UI cannot produce). */
@@ -123,10 +126,10 @@ function readRequest(body) {
   // Image models weight the start of a prompt most, so the view leads.
   const subject = prompt.replace(/^(a|an|the)\s+/i, (article) => article.toLowerCase())
   const fullPrompt = [
-    `${angle.lead(angleDetail)} ${subject}`,
+    [angle.lead(angleDetail), subject, render.medium].filter(Boolean).join(' '),
     angle.hint(angleDetail),
     render.hint,
-    FRAMING,
+    framing(render.detail),
     render.background,
   ].join(', ')
   return { engine, render, fullPrompt }

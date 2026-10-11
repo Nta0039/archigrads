@@ -99,11 +99,11 @@ const PRICE_TYPES = [
 ]
 
 // Format pills list whatever formats the library contains, in this order first.
-const FORMAT_ORDER = ['.psd', '.ai', '.png', '.svg', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm']
+const FORMAT_ORDER = ['.psd', '.ai', '.png', '.svg', '.dwg', '.pdf', '.rfa', '.rvt', '.3dm', '.skp']
 
 // Format chips come from the formats the assets have; these are always offered
-// as well, even before the library holds one (Rhino models).
-const PINNED_FORMATS = ['.3dm']
+// as well, even before the library holds one (Rhino and SketchUp models).
+const PINNED_FORMATS = ['.3dm', '.skp']
 
 function collectFormats(assets) {
   const present = new Set([...assets.flatMap((asset) => asset.formats), ...PINNED_FORMATS])

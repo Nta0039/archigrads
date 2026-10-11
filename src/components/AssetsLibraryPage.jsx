@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Bookmark,
   Box,
   Boxes,
   Cuboid,
@@ -20,9 +21,12 @@ import {
 } from 'lucide-react'
 import { formatAud } from '../lib/catalogue'
 import { FLOWING_BORDER } from '../lib/flowingBorder'
+import { useCheckout } from '../lib/checkout'
 import { downloadAsset } from '../lib/download'
 import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
+import { useSavedAssets } from '../lib/savedAssets'
+import AssetPreviewModal from './AssetPreviewModal'
 
 const TYPE_ICONS = {
   '2D Collections': Images,
@@ -41,7 +45,7 @@ const PINNED_CATEGORIES = ['3D Collections']
  * stockedCategories); unknown new ones get a folder icon.
  * The community "AI Generated" category is promoted to sit right after "All".
  */
-function buildCategoryOptions(categories) {
+function buildCategoryOptions(categories, saved) {
   const ordered = [
     ...categories.filter(({ name }) => name === AI_CATEGORY),
     ...categories.filter(({ name }) => name !== AI_CATEGORY),
@@ -53,6 +57,8 @@ function buildCategoryOptions(categories) {
       icon: TYPE_ICONS[name] ?? Folder,
       matches: (asset) => asset.type === name,
     })),
+    // Bookmarks from the preview modal's "Save to Library" (this browser only).
+    ...(saved.size ? [{ label: 'Saved', icon: Bookmark, matches: (asset) => saved.has(asset.id) }] : []),
   ]
 }
 
@@ -128,6 +134,9 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   const [priceType, setPriceType] = useState(null) // 'free' | 'premium' | null
   const catalogue = useCatalogue()
   const [notice, setNotice] = useState(null) // { kind: 'hidden', asset } | { kind: 'error', message }
+  const [selectedAsset, setSelectedAsset] = useState(null) // asset shown in the preview modal
+  const { saved } = useSavedAssets()
+  const closePreview = useCallback(() => setSelectedAsset(null), [])
 
   // Admin: remove the card at once, then persist is_hidden = true via /api/hide.
   // No prompt or confirmation; if the request fails the card comes back.
@@ -164,7 +173,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
       ),
     [catalogue.categories, catalogue.assets],
   )
-  const categoryOptions = useMemo(() => buildCategoryOptions(stockedCategories), [stockedCategories])
+  const categoryOptions = useMemo(() => buildCategoryOptions(stockedCategories, saved), [stockedCategories, saved])
   const formats = useMemo(() => collectFormats(catalogue.assets), [catalogue.assets])
   const activeCategory = categoryOptions.find((option) => option.label === category) ?? categoryOptions[0]
 
@@ -316,7 +325,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
 
         <div className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
           {visibleAssets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} isAdmin={isAdmin} onHide={handleHideAsset} />
+            <AssetCard key={asset.id} asset={asset} isAdmin={isAdmin} onHide={handleHideAsset} onPreview={setSelectedAsset} />
           ))}
         </div>
 
@@ -337,6 +346,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
       </main>
 
       {notice && <AdminNotice notice={notice} onUndo={handleUndoHide} onDismiss={dismissNotice} />}
+      {selectedAsset && <AssetPreviewModal key={selectedAsset.id} asset={selectedAsset} onClose={closePreview} />}
     </>
   )
 }
@@ -444,44 +454,6 @@ function PricingRules({ categories, activeType, onSelectType }) {
   )
 }
 
-/**
- * POSTs to the /api/checkout serverless function and returns the Stripe-hosted
- * checkout URL. Every failure becomes an Error whose message says what actually
- * went wrong (network, missing API route, or the server's own error message).
- */
-async function createCheckoutSession(assetId) {
-  let response
-  try {
-    response = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId }),
-    })
-  } catch (networkError) {
-    throw new Error(`Network error reaching /api/checkout: ${networkError.message}`, { cause: networkError })
-  }
-
-  const body = await response.text()
-  let data = null
-  try {
-    data = JSON.parse(body)
-  } catch {
-    // Not JSON: usually an HTML 404 page because the API route isn't running.
-  }
-
-  if (!response.ok) {
-    if (data?.error) throw new Error(data.error)
-    if (response.status === 404) {
-      // `npm run dev` (plain Vite) does not run Vercel functions in /api.
-      throw new Error(
-        'Checkout API not found. Test on the live site or run `vercel dev` locally; `npm run dev` has no /api.',
-      )
-    }
-    throw new Error(`Checkout API returned HTTP ${response.status}: ${body.slice(0, 120)}`)
-  }
-  if (!data?.url) throw new Error(`Checkout API returned no checkout URL: ${body.slice(0, 120)}`)
-  return data.url
-}
 
 /** Hover bar on free cards: fetches a signed link from /api/download and saves the file. */
 function FreeDownloadButton({ asset }) {
@@ -606,26 +578,6 @@ function CatalogueError({ error, onRetry }) {
   )
 }
 
-/** Starts Stripe Checkout for one asset and redirects; exposes loading / error state. */
-function useCheckout(asset) {
-  const [status, setStatus] = useState('idle') // 'idle' | 'loading' | 'error'
-  const [message, setMessage] = useState('')
-
-  const start = async () => {
-    setStatus('loading')
-    setMessage('')
-    try {
-      const url = await createCheckoutSession(asset.id)
-      window.location.assign(url)
-    } catch (error) {
-      console.error('[checkout] Could not start Stripe Checkout:', error)
-      setMessage(error.message)
-      setStatus('error')
-    }
-  }
-
-  return { status, message, start }
-}
 
 /**
  * The card's price chip. For premium assets it is the Buy button: it shows the
@@ -677,7 +629,7 @@ function FormatBadge({ format }) {
  * Memoised: asset objects are module constants, so a card only re-renders when
  * it is shown for a different asset, not on every search keystroke.
  */
-const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide }) {
+const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview }) {
   const [failed, setFailed] = useState(false)
   const showImage = asset.imageUrl && !failed
   const checkout = useCheckout(asset)
@@ -686,14 +638,22 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide }) {
     <figure className="group overflow-hidden border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
         {showImage ? (
-          <img
-            src={asset.imageUrl}
-            alt={asset.title}
-            loading="lazy"
-            draggable={false}
-            onError={() => setFailed(true)}
-            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-          />
+          // Opens the preview modal; the Download / Hide overlays sit above it.
+          <button
+            type="button"
+            onClick={() => onPreview(asset)}
+            aria-label={`Preview ${asset.title}`}
+            className="block h-full w-full cursor-zoom-in"
+          >
+            <img
+              src={asset.imageUrl}
+              alt={asset.title}
+              loading="lazy"
+              draggable={false}
+              onError={() => setFailed(true)}
+              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            />
+          </button>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
             Asset Preview

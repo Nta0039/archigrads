@@ -18,10 +18,8 @@ create table if not exists public.categories (
 insert into public.categories (name, folder, price_cents, allowance, sort_order) values
   ('2D Singles', '2d-singles', null, null, 1),
   ('2D Collections', '2d-collections', 1000, '50 downloads', 2),
-  ('Code & Standards', 'code-and-standards', 2000, '20 downloads', 3),
   ('BIM Families', 'bim-families', 1000, '20 downloads', 4),
   ('Detailed Models', 'detailed-models', 2000, '10 downloads', 5),
-  ('Project Proposals', 'project-proposals', 1000, 'Per project', 6),
   ('AI Generated', 'ai-generated', null, null, 7)  -- community uploads from AI Studio (free)
 on conflict (name) do update set
   folder = excluded.folder,
@@ -93,7 +91,9 @@ create policy "Public can view thumbnails"
 -- cannot read or list it at all.
 
 -- ---------------------------------------------------------------------------
--- 5. Seed: today's 23 library items (7 real files + mock premium items).
+-- 5. Seed: the original 7 library items with real files. (The mock premium
+--    placeholders were removed before the final presentation; later assets
+--    were added by the sync script and AI Studio.)
 --    The files themselves are uploaded by migrate_files.js.
 -- ---------------------------------------------------------------------------
 insert into public.assets (slug, title, category, subject, formats, thumbnail_path, source_paths, source_filename, sort_order) values
@@ -103,23 +103,7 @@ insert into public.assets (slug, title, category, subject, formats, thumbnail_pa
   ('tree-section', 'Tree Section', '2D Singles', 'Vegetation', '{".psd"}', '2d-singles/tree-section.png', '{"2d-singles/tree-section.psd"}', 'tree section.psd', 4),
   ('bike', 'Bike', '2D Singles', 'Vehicles', '{".psd"}', '2d-singles/bike.jpg', '{"2d-singles/bike.psd"}', 'bike.psd', 5),
   ('car', 'Car', '2D Singles', 'Vehicles', '{".dwg"}', '2d-singles/car.png', '{"2d-singles/car.dwg"}', 'car.dwg', 6),
-  ('furniture-set', 'Furniture Set', '2D Singles', 'Furniture', '{".ai"}', '2d-singles/furniture-set.png', '{"2d-singles/furniture-set.ai"}', 'furniture set.ai', 7),
-  ('brick-stretcher-bond', 'Brick Stretcher Bond', '2D Singles', 'Textures', '{".png"}', null, '{}', null, 8),
-  ('people-cutout-collection', 'People Cutout Collection', '2D Collections', 'People', '{".psd",".png"}', 'placeholders/dummy-2d-collection.png', '{"placeholders/dummy-2d-collection.png"}', 'archigrads-preview-2d-collection.png', 9),
-  ('vegetation-elevation-collection', 'Vegetation Elevation Collection', '2D Collections', 'Vegetation', '{".dwg",".png"}', 'placeholders/dummy-2d-collection.png', '{"placeholders/dummy-2d-collection.png"}', 'archigrads-preview-2d-collection.png', 10),
-  ('street-furniture-collection', 'Street Furniture Collection', '2D Collections', 'Furniture', '{".ai",".dwg"}', 'placeholders/dummy-2d-collection.png', '{"placeholders/dummy-2d-collection.png"}', 'archigrads-preview-2d-collection.png', 11),
-  ('ncc-volume-one-compliance-pack', 'NCC Volume One Compliance Pack', 'Code & Standards', 'NCC', '{".pdf"}', 'placeholders/dummy-ncc.png', '{"placeholders/dummy-ncc.png"}', 'archigrads-preview-ncc.png', 12),
-  ('accessibility-as-1428-1-pack', 'Accessibility (AS 1428.1) Pack', 'Code & Standards', 'NCC', '{".pdf",".dwg"}', 'placeholders/dummy-ncc.png', '{"placeholders/dummy-ncc.png"}', 'archigrads-preview-ncc.png', 13),
-  ('fire-safety-checklist-pack', 'Fire Safety Checklist Pack', 'Code & Standards', 'NCC', '{".pdf"}', 'placeholders/dummy-ncc.png', '{"placeholders/dummy-ncc.png"}', 'archigrads-preview-ncc.png', 14),
-  ('door-families', 'Door Families', 'BIM Families', 'Revit', '{".rfa"}', 'placeholders/dummy-revit-family.png', '{"placeholders/dummy-revit-family.png"}', 'archigrads-preview-revit-family.png', 15),
-  ('window-families', 'Window Families', 'BIM Families', 'Revit', '{".rfa"}', 'placeholders/dummy-revit-family.png', '{"placeholders/dummy-revit-family.png"}', 'archigrads-preview-revit-family.png', 16),
-  ('furniture-families', 'Furniture Families', 'BIM Families', 'Revit', '{".rfa"}', 'placeholders/dummy-revit-family.png', '{"placeholders/dummy-revit-family.png"}', 'archigrads-preview-revit-family.png', 17),
-  ('clt-stair-assembly', 'CLT Stair Assembly', 'Detailed Models', 'Revit', '{".rvt"}', 'placeholders/dummy-revit-model.png', '{"placeholders/dummy-revit-model.png"}', 'archigrads-preview-revit-model.png', 18),
-  ('facade-fin-system', 'Facade Fin System', 'Detailed Models', 'Rhino', '{".3dm"}', 'placeholders/dummy-rhino-model.png', '{"placeholders/dummy-rhino-model.png"}', 'archigrads-preview-rhino-model.png', 19),
-  ('timber-pavilion', 'Timber Pavilion', 'Detailed Models', 'Revit / Rhino', '{".rvt",".3dm"}', 'placeholders/dummy-revit-model.png', '{"placeholders/dummy-revit-model.png"}', 'archigrads-preview-revit-model.png', 20),
-  ('community-library-proposal', 'Community Library Proposal', 'Project Proposals', 'Civic', '{".pdf",".rvt"}', 'placeholders/dummy-project-proposal.png', '{"placeholders/dummy-project-proposal.png"}', 'archigrads-preview-project-proposal.png', 21),
-  ('mixed-use-tower-proposal', 'Mixed-Use Tower Proposal', 'Project Proposals', 'Mixed use', '{".pdf",".3dm"}', 'placeholders/dummy-project-proposal.png', '{"placeholders/dummy-project-proposal.png"}', 'archigrads-preview-project-proposal.png', 22),
-  ('pocket-park-proposal', 'Pocket Park Proposal', 'Project Proposals', 'Landscape', '{".pdf",".dwg"}', 'placeholders/dummy-project-proposal.png', '{"placeholders/dummy-project-proposal.png"}', 'archigrads-preview-project-proposal.png', 23)
+  ('furniture-set', 'Furniture Set', '2D Singles', 'Furniture', '{".ai"}', '2d-singles/furniture-set.png', '{"2d-singles/furniture-set.ai"}', 'furniture set.ai', 7)
 on conflict (slug) do update set
   title = excluded.title,
   category = excluded.category,

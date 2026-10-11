@@ -7,14 +7,12 @@ import {
   Download,
   EyeOff,
   Folder,
-  FolderOpen,
   Gift,
   Image,
   Images,
   LayoutGrid,
   LoaderCircle,
   RotateCcw,
-  ScrollText,
   Search,
   Sparkles,
   ShoppingBag,
@@ -29,17 +27,16 @@ import { setAssetHidden } from '../lib/adminHide'
 const TYPE_ICONS = {
   '2D Singles': Image,
   '2D Collections': Images,
-  'Code & Standards': ScrollText,
   'BIM Families': Boxes,
   'Detailed Models': Box,
-  'Project Proposals': FolderOpen,
   'AI Generated': Sparkles,
 }
 
 const AI_CATEGORY = 'AI Generated'
 
 /**
- * Category pills come from the categories table; unknown new ones get a folder icon.
+ * Category pills come from the categories table (only those with assets, see
+ * stockedCategories); unknown new ones get a folder icon.
  * The community "AI Generated" category is promoted to sit right after "All".
  */
 function buildCategoryOptions(categories) {
@@ -152,7 +149,13 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
     }
   }, [])
 
-  const categoryOptions = useMemo(() => buildCategoryOptions(catalogue.categories), [catalogue.categories])
+  // Only categories that currently hold assets get a pill or a pricing tier, so
+  // no filter ever leads to an empty page. A category reappears once it has assets.
+  const stockedCategories = useMemo(
+    () => catalogue.categories.filter(({ name }) => catalogue.assets.some((asset) => asset.type === name)),
+    [catalogue.categories, catalogue.assets],
+  )
+  const categoryOptions = useMemo(() => buildCategoryOptions(stockedCategories), [stockedCategories])
   const formats = useMemo(() => collectFormats(catalogue.assets), [catalogue.assets])
   const activeCategory = categoryOptions.find((option) => option.label === category) ?? categoryOptions[0]
 
@@ -188,7 +191,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
             Premium Architectural Assets
           </h1>
           <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-            Free 2D cutouts, plus premium collections, NCC code packs, Revit families, detailed models and full project proposals.
+            Free 2D cutouts and CAD blocks, premium Revit families, and community assets made in AI Studio.
           </p>
 
           <form
@@ -276,7 +279,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
 
       <main className="mx-auto max-w-7xl px-6 pb-24 pt-8 lg:px-8">
         {priceType === 'premium' && (
-          <PricingRules categories={catalogue.categories} activeType={category} onSelectType={setCategory} />
+          <PricingRules categories={stockedCategories} activeType={category} onSelectType={setCategory} />
         )}
 
         {catalogue.status === 'loading' && <GridSkeleton />}
@@ -379,6 +382,7 @@ function Pill({ active, onClick, icon: Icon, effect, children }) {
  */
 function PricingRules({ categories, activeType, onSelectType }) {
   const tiers = categories.filter((tier) => tier.price).map((tier) => [tier.name, tier])
+  const columns = ['', 'lg:grid-cols-1', 'lg:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-cols-4'][tiers.length] ?? 'lg:grid-cols-5'
 
   return (
     <section
@@ -393,7 +397,7 @@ function PricingRules({ categories, activeType, onSelectType }) {
         <p className="text-xs text-neutral-500 dark:text-neutral-400">All prices in Australian dollars (AUD)</p>
       </div>
 
-      <ul className="mt-4 grid grid-cols-1 gap-px overflow-hidden border border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-700 dark:bg-neutral-700">
+      <ul className={`mt-4 grid grid-cols-1 gap-px overflow-hidden border border-neutral-200 bg-neutral-200 ${tiers.length > 1 ? 'sm:grid-cols-2' : ''} ${columns} dark:border-neutral-700 dark:bg-neutral-700`}>
         {tiers.map(([type, { price, allowance }]) => {
           const Icon = TYPE_ICONS[type] ?? Folder
           const isActive = activeType === type

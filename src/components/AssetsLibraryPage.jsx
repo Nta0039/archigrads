@@ -191,7 +191,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
             Premium Architectural Assets
           </h1>
           <p className="mx-auto mt-5 max-w-xl leading-relaxed text-neutral-500 dark:text-neutral-400">
-            Free 2D cutouts and CAD blocks, premium Revit families, and community assets made in AI Studio.
+            Free 2D cutouts, CAD blocks and Revit families, plus community assets made in AI Studio.
           </p>
 
           <form
@@ -383,6 +383,7 @@ function Pill({ active, onClick, icon: Icon, effect, children }) {
 function PricingRules({ categories, activeType, onSelectType }) {
   const tiers = categories.filter((tier) => tier.price).map((tier) => [tier.name, tier])
   const columns = ['', 'lg:grid-cols-1', 'lg:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-cols-4'][tiers.length] ?? 'lg:grid-cols-5'
+  if (!tiers.length) return null // no paid category has assets (premium items are single purchases)
 
   return (
     <section

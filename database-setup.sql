@@ -18,7 +18,7 @@ create table if not exists public.categories (
 insert into public.categories (name, folder, price_cents, allowance, sort_order) values
   ('2D Singles', '2d-singles', null, null, 1),
   ('2D Collections', '2d-collections', 1000, '50 downloads', 2),
-  ('BIM Families', 'bim-families', 1000, '20 downloads', 4),
+  ('BIM Families', 'bim-families', null, null, 4),  -- free since the final presentation
   ('Detailed Models', 'detailed-models', 2000, '10 downloads', 5),
   ('AI Generated', 'ai-generated', null, null, 7)  -- community uploads from AI Studio (free)
 on conflict (name) do update set

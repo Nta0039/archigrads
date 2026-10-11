@@ -16,7 +16,8 @@ create table if not exists public.categories (
 );
 
 insert into public.categories (name, folder, price_cents, allowance, sort_order) values
-  ('2D collections', '2d-singles', null, null, 1),  -- was "2D Singles"; storage folder kept
+  ('2D Collections', '2d-singles', null, null, 1),  -- was "2D Singles"; storage folder kept
+  ('3D Collections', '3d-collections', null, null, 2),
   ('BIM Families', 'bim-families', null, null, 4),  -- free since the final presentation
   ('Detailed Models', 'detailed-models', 2000, '10 downloads', 5),
   ('AI Generated', 'ai-generated', null, null, 7)  -- community uploads from AI Studio (free)
@@ -96,13 +97,13 @@ create policy "Public can view thumbnails"
 --    The files themselves are uploaded by migrate_files.js.
 -- ---------------------------------------------------------------------------
 insert into public.assets (slug, title, category, subject, formats, thumbnail_path, source_paths, source_filename, sort_order) values
-  ('walking-figure', 'Walking Figure', '2D collections', 'People', '{".psd"}', '2d-singles/walking-figure.jpg', '{"2d-singles/walking-figure.psd"}', 'Walking Figure.psd', 1),
-  ('sitting-figure', 'Sitting Figure', '2D collections', 'People', '{".psd"}', '2d-singles/sitting-figure.jpg', '{"2d-singles/sitting-figure.psd"}', 'Sitting Figure.psd', 2),
-  ('shrub-cluster', 'Shrub Cluster', '2D collections', 'Vegetation', '{".psd"}', '2d-singles/shrub-cluster.jpg', '{"2d-singles/shrub-cluster.psd.part1","2d-singles/shrub-cluster.psd.part2","2d-singles/shrub-cluster.psd.part3"}', 'Shrub Cluster.psd', 3),
-  ('tree-section', 'Tree Section', '2D collections', 'Vegetation', '{".psd"}', '2d-singles/tree-section.png', '{"2d-singles/tree-section.psd"}', 'tree section.psd', 4),
-  ('bike', 'Bike', '2D collections', 'Vehicles', '{".psd"}', '2d-singles/bike.jpg', '{"2d-singles/bike.psd"}', 'bike.psd', 5),
-  ('car', 'Car', '2D collections', 'Vehicles', '{".dwg"}', '2d-singles/car.png', '{"2d-singles/car.dwg"}', 'car.dwg', 6),
-  ('furniture-set', 'Furniture Set', '2D collections', 'Furniture', '{".ai"}', '2d-singles/furniture-set.png', '{"2d-singles/furniture-set.ai"}', 'furniture set.ai', 7)
+  ('walking-figure', 'Walking Figure', '2D Collections', 'People', '{".psd"}', '2d-singles/walking-figure.jpg', '{"2d-singles/walking-figure.psd"}', 'Walking Figure.psd', 1),
+  ('sitting-figure', 'Sitting Figure', '2D Collections', 'People', '{".psd"}', '2d-singles/sitting-figure.jpg', '{"2d-singles/sitting-figure.psd"}', 'Sitting Figure.psd', 2),
+  ('shrub-cluster', 'Shrub Cluster', '2D Collections', 'Vegetation', '{".psd"}', '2d-singles/shrub-cluster.jpg', '{"2d-singles/shrub-cluster.psd.part1","2d-singles/shrub-cluster.psd.part2","2d-singles/shrub-cluster.psd.part3"}', 'Shrub Cluster.psd', 3),
+  ('tree-section', 'Tree Section', '2D Collections', 'Vegetation', '{".psd"}', '2d-singles/tree-section.png', '{"2d-singles/tree-section.psd"}', 'tree section.psd', 4),
+  ('bike', 'Bike', '2D Collections', 'Vehicles', '{".psd"}', '2d-singles/bike.jpg', '{"2d-singles/bike.psd"}', 'bike.psd', 5),
+  ('car', 'Car', '2D Collections', 'Vehicles', '{".dwg"}', '2d-singles/car.png', '{"2d-singles/car.dwg"}', 'car.dwg', 6),
+  ('furniture-set', 'Furniture Set', '2D Collections', 'Furniture', '{".ai"}', '2d-singles/furniture-set.png', '{"2d-singles/furniture-set.ai"}', 'furniture set.ai', 7)
 on conflict (slug) do update set
   title = excluded.title,
   category = excluded.category,

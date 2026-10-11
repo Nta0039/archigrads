@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Boxes,
+  Cuboid,
   CircleAlert,
   Crown,
   Download,
@@ -24,13 +25,16 @@ import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
 
 const TYPE_ICONS = {
-  '2D collections': Images,
+  '2D Collections': Images,
+  '3D Collections': Cuboid,
   'BIM Families': Boxes,
   'Detailed Models': Box,
   'AI Generated': Sparkles,
 }
 
 const AI_CATEGORY = 'AI Generated'
+// Shown even while empty (new categories being filled before the presentation).
+const PINNED_CATEGORIES = ['3D Collections']
 
 /**
  * Category pills come from the categories table (only those with assets, see
@@ -151,10 +155,13 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
     }
   }, [])
 
-  // Only categories that currently hold assets get a pill or a pricing tier, so
-  // no filter ever leads to an empty page. A category reappears once it has assets.
+  // Only categories that currently hold assets (or are pinned) get a pill or a
+  // pricing tier, so no filter leads to an unexpected empty page.
   const stockedCategories = useMemo(
-    () => catalogue.categories.filter(({ name }) => catalogue.assets.some((asset) => asset.type === name)),
+    () =>
+      catalogue.categories.filter(
+        ({ name }) => PINNED_CATEGORIES.includes(name) || catalogue.assets.some((asset) => asset.type === name),
+      ),
     [catalogue.categories, catalogue.assets],
   )
   const categoryOptions = useMemo(() => buildCategoryOptions(stockedCategories), [stockedCategories])

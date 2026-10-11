@@ -241,8 +241,10 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
       </section>
 
       {/* Filters */}
-      <section className="border-b border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-8 lg:px-8">
+      {/* Sticky below the 64 px site header from md up (on phones the wrapped pills
+          would cover half the screen). Translucent page colour + blur, like the header. */}
+      <section className="relative z-30 border-b border-neutral-200 bg-neutral-100/90 backdrop-blur md:sticky md:top-16 dark:border-neutral-800 dark:bg-neutral-950/90">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 lg:px-8">
           <FilterRow label="Category">
             {/* Pricing works alongside the category, so "Premium" + "People" narrows both. */}
             {PRICE_TYPES.map(({ value, label, icon }) => (

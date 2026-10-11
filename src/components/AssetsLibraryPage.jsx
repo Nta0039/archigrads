@@ -8,7 +8,6 @@ import {
   EyeOff,
   Folder,
   Gift,
-  Image,
   Images,
   LayoutGrid,
   LoaderCircle,
@@ -25,8 +24,7 @@ import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
 
 const TYPE_ICONS = {
-  '2D Singles': Image,
-  '2D Collections': Images,
+  '2D collections': Images,
   'BIM Families': Boxes,
   'Detailed Models': Box,
   'AI Generated': Sparkles,

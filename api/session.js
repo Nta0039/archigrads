@@ -1,3 +1,4 @@
+import { BUNDLES } from '../src/lib/bundles.js'
 import { fetchAsset } from '../src/lib/catalogue.js'
 import { HttpError, getStripe, sendError } from './_stripe.js'
 import { getSupabaseAdmin } from './_supabase.js'
@@ -26,15 +27,18 @@ export default async function handler(req, res) {
       throw error
     }
 
+    const bundle = BUNDLES[session.metadata?.bundleId] ?? null
     const assetId = session.metadata?.assetId ?? ''
     const asset = assetId ? await fetchAsset(getSupabaseAdmin(), assetId) : null
     res.status(200).json({
       id: session.id,
       paid: session.payment_status === 'paid',
       assetId: asset?.id ?? null,
-      title: asset?.title ?? 'Premium asset',
-      allowance: asset?.allowance ?? null,
-      hasSource: Boolean(asset?.hasSource),
+      // Bundle purchases list every asset they unlock; the success page downloads each.
+      assetIds: bundle ? bundle.assetIds : asset ? [asset.id] : [],
+      title: bundle?.title ?? asset?.title ?? 'Premium asset',
+      allowance: bundle ? `${bundle.assetIds.length} files` : (asset?.allowance ?? null),
+      hasSource: bundle ? true : Boolean(asset?.hasSource),
       amount: (session.amount_total ?? 0) / 100,
       currency: (session.currency ?? 'aud').toUpperCase(),
       email: session.customer_details?.email ?? null,

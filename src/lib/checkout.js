@@ -5,13 +5,13 @@ import { useState } from 'react'
  * checkout URL. Every failure becomes an Error whose message says what actually
  * went wrong (network, missing API route, or the server's own error message).
  */
-async function createCheckoutSession(assetId) {
+async function createCheckoutSession(purchase) {
   let response
   try {
     response = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId }),
+      body: JSON.stringify(purchase),
     })
   } catch (networkError) {
     throw new Error(`Network error reaching /api/checkout: ${networkError.message}`, { cause: networkError })
@@ -39,8 +39,11 @@ async function createCheckoutSession(assetId) {
   return data.url
 }
 
-/** Starts Stripe Checkout for one asset and redirects; exposes loading / error state. */
-export function useCheckout(asset) {
+/**
+ * Starts Stripe Checkout and redirects; exposes loading / error state.
+ * purchase: { assetId } for one asset, or { bundleId } for a bundle.
+ */
+export function useCheckout(purchase) {
   const [status, setStatus] = useState('idle') // 'idle' | 'loading' | 'error'
   const [message, setMessage] = useState('')
 
@@ -48,7 +51,7 @@ export function useCheckout(asset) {
     setStatus('loading')
     setMessage('')
     try {
-      const url = await createCheckoutSession(asset.id)
+      const url = await createCheckoutSession(purchase)
       window.location.assign(url)
     } catch (error) {
       console.error('[checkout] Could not start Stripe Checkout:', error)

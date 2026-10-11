@@ -1,3 +1,4 @@
+import { BUNDLES } from '../src/lib/bundles.js'
 import { SOURCE_BUCKET, fetchAsset } from '../src/lib/catalogue.js'
 import { HttpError, getStripe, sendError } from './_stripe.js'
 import { getSupabaseAdmin } from './_supabase.js'
@@ -11,7 +12,7 @@ const LINK_LIFETIME_SECONDS = 300
  * links that expire after five minutes:
  *   - free assets: for anyone;
  *   - premium assets: only with a Stripe Checkout session that is paid and was
- *     for this exact asset.
+ *     for this exact asset, or for a bundle that includes it.
  * Several urls means a file stored in parts; the browser joins them in order.
  */
 export default async function handler(req, res) {
@@ -41,7 +42,9 @@ export default async function handler(req, res) {
         if (error?.type === 'StripeInvalidRequestError') throw new HttpError(403, 'Checkout session not found.')
         throw error
       }
-      if (session.payment_status !== 'paid' || session.metadata?.assetId !== asset.id) {
+      const bundle = BUNDLES[session.metadata?.bundleId]
+      const covers = session.metadata?.assetId === asset.id || Boolean(bundle?.assetIds.includes(asset.id))
+      if (session.payment_status !== 'paid' || !covers) {
         throw new HttpError(403, 'This checkout does not include this asset.')
       }
     }

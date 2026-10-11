@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bookmark, BookmarkCheck, CircleAlert, Download, LoaderCircle, ShoppingBag, X } from 'lucide-react'
+import { Bookmark, BookmarkCheck, CircleAlert, Download, Layers, LoaderCircle, ShoppingBag, X } from 'lucide-react'
+import { bundleForAsset } from '../lib/bundles'
 import { useCheckout } from '../lib/checkout'
 import { downloadAsset } from '../lib/download'
 import { FLOWING_BORDER } from '../lib/flowingBorder'
@@ -29,7 +30,11 @@ export default function AssetPreviewModal({ asset, onClose }) {
   const closeRef = useRef(null)
   const [meta, setMeta] = useState({ status: 'loading' })
   const [download, setDownload] = useState({ status: 'idle', message: '' })
-  const checkout = useCheckout(asset)
+  const checkout = useCheckout({ assetId: asset.id })
+  const bundle = asset.priceType === 'premium' ? bundleForAsset(asset.id) : null
+  const bundleCheckout = useCheckout({ bundleId: bundle?.id })
+  const busy = checkout.status === 'loading' || bundleCheckout.status === 'loading'
+  const failure = [checkout, bundleCheckout].find((attempt) => attempt.status === 'error')
   const { saved, toggle } = useSavedAssets()
   const isSaved = saved.has(asset.id)
   const premium = asset.priceType === 'premium'
@@ -163,11 +168,35 @@ export default function AssetPreviewModal({ asset, onClose }) {
           </dl>
 
           <div className="mt-auto space-y-2 p-5">
+            {bundle && (
+              // Bundle offer, styled as a technical note on a drawing sheet.
+              <div className="mb-3 border border-neutral-300 dark:border-neutral-700">
+                <p className="flex items-start gap-2 p-3 text-sm leading-snug text-neutral-600 dark:text-neutral-400">
+                  <Layers className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400 dark:text-neutral-500" strokeWidth={1.75} aria-hidden />
+                  <span>
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-900 dark:text-neutral-100">
+                      Special offer
+                    </span>
+                    Bundle all {bundle.assetIds.length} {bundle.collection} {bundle.format} files for only A$
+                    {bundle.priceCents / 100} AUD.
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={bundleCheckout.start}
+                  disabled={busy}
+                  className="flex w-full items-center justify-between gap-2 border-t border-neutral-300 px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-wait disabled:opacity-70 dark:border-neutral-700 dark:hover:bg-neutral-100 dark:hover:text-neutral-900"
+                >
+                  <span>{bundleCheckout.status === 'loading' ? 'Opening checkout…' : `Buy all ${bundle.assetIds.length}`}</span>
+                  <span className="tabular-nums">A${(bundle.priceCents / 100).toFixed(2)} AUD</span>
+                </button>
+              </div>
+            )}
             {premium ? (
               <button
                 type="button"
                 onClick={checkout.start}
-                disabled={checkout.status === 'loading'}
+                disabled={busy}
                 className={`${FLOWING_BORDER} flex w-full items-center justify-center gap-2 px-4 py-3 text-sm disabled:cursor-wait`}
               >
                 {checkout.status === 'loading' ? (
@@ -207,10 +236,10 @@ export default function AssetPreviewModal({ asset, onClose }) {
               )}
               {isSaved ? 'Saved to Library' : 'Save to Library'}
             </button>
-            {(checkout.status === 'error' || download.status === 'error') && (
+            {(failure || download.status === 'error') && (
               <p role="alert" className="flex items-start gap-1.5 pt-1 text-[11px] leading-snug text-neutral-600 dark:text-neutral-300">
                 <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-                <span>{checkout.status === 'error' ? checkout.message : download.message}</span>
+                <span>{failure ? failure.message : download.message}</span>
               </p>
             )}
             {premium && (

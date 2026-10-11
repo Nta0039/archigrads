@@ -79,10 +79,14 @@ export default function SuccessPage({ onBack }) {
     return () => clearTimeout(timer)
   }, [paidSessionId])
 
+  // A bundle unlocks several assets; they download one after another.
   const startDownload = async () => {
-    setDownload({ status: 'loading', message: '' })
+    const ids = state.session.assetIds?.length ? state.session.assetIds : [state.session.assetId]
     try {
-      await downloadAsset(state.session.assetId, state.session.id)
+      for (const [index, id] of ids.entries()) {
+        setDownload({ status: 'loading', message: '', progress: ids.length > 1 ? `${index + 1} of ${ids.length}` : '' })
+        await downloadAsset(id, state.session.id)
+      }
       setDownload({ status: 'idle', message: '' })
     } catch (error) {
       console.error('[download] Could not download the purchase:', error)
@@ -145,7 +149,9 @@ export default function SuccessPage({ onBack }) {
                 ) : (
                   <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 )}
-                {download.status === 'loading' ? 'Preparing your files…' : 'Download Your Files'}
+                {download.status === 'loading'
+                  ? `Preparing your files${download.progress ? ` (${download.progress})` : ''}…`
+                  : 'Download Your Files'}
               </button>
             )}
             {download.status === 'error' && (

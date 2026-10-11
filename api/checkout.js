@@ -1,13 +1,50 @@
+import { BUNDLES } from '../src/lib/bundles.js'
 import { fetchAsset } from '../src/lib/catalogue.js'
 import { HttpError, getStripe, sendError, siteOrigin } from './_stripe.js'
 import { getSupabaseAdmin } from './_supabase.js'
 
+/** What is being bought: { item: { name, description, amountCents }, metadata }. */
+async function readPurchase(body) {
+  const supabase = getSupabaseAdmin()
+
+  if (body?.bundleId !== undefined) {
+    const bundle = typeof body.bundleId === 'string' ? BUNDLES[body.bundleId] : null
+    if (!bundle) throw new HttpError(404, 'Unknown bundle.')
+    // Every file in the bundle must still be listed and downloadable.
+    const assets = await Promise.all(bundle.assetIds.map((id) => fetchAsset(supabase, id)))
+    if (assets.some((asset) => !asset?.hasSource)) throw new HttpError(409, 'This bundle is not available right now.')
+    return {
+      item: {
+        name: bundle.title,
+        description: `${assets.length} files: ${assets.map((asset) => asset.title).join(', ')}`,
+        amountCents: bundle.priceCents,
+      },
+      metadata: { bundleId: bundle.id },
+    }
+  }
+
+  const assetId = typeof body?.assetId === 'string' ? body.assetId : ''
+  if (!/^[a-z0-9-]{1,100}$/.test(assetId)) throw new HttpError(404, 'Unknown asset.')
+  const asset = await fetchAsset(supabase, assetId)
+  if (!asset) throw new HttpError(404, 'Unknown asset.')
+  if (!asset.price) throw new HttpError(400, 'This asset is free; no checkout needed.')
+  return {
+    item: {
+      name: asset.title,
+      description: asset.allowance ? `${asset.type} · ${asset.allowance}` : asset.type,
+      amountCents: Math.round(asset.price * 100),
+    },
+    metadata: { assetId: asset.id },
+  }
+}
+
 /**
- * POST /api/checkout  { assetId }  ->  { url }
+ * POST /api/checkout  { assetId } | { bundleId }  ->  { url }
  *
- * Creates a Stripe Checkout Session for one premium asset. The price is read
- * here from Supabase (the asset's own price_cents, else its category's price),
- * never taken from the request, so a visitor cannot change what they pay.
+ * Creates a Stripe Checkout Session for one premium asset, or for a bundle
+ * (src/lib/bundles.js). The price is read here (Supabase for an asset, the
+ * bundle definition for a bundle), never taken from the request, so a visitor
+ * cannot change what they pay.
  * Redirect URLs use the domain the visitor is on (production, preview or a
  * custom domain); test vs live mode comes only from STRIPE_SECRET_KEY.
  */
@@ -18,12 +55,7 @@ export default async function handler(req, res) {
       throw new HttpError(405, 'Use POST.')
     }
 
-    const assetId = typeof req.body?.assetId === 'string' ? req.body.assetId : ''
-    if (!/^[a-z0-9-]{1,100}$/.test(assetId)) throw new HttpError(404, 'Unknown asset.')
-    const asset = await fetchAsset(getSupabaseAdmin(), assetId)
-    if (!asset) throw new HttpError(404, 'Unknown asset.')
-    if (!asset.price) throw new HttpError(400, 'This asset is free; no checkout needed.')
-
+    const { item, metadata } = await readPurchase(req.body)
     const origin = siteOrigin(req)
     const session = await getStripe().checkout.sessions.create({
       mode: 'payment',
@@ -32,15 +64,12 @@ export default async function handler(req, res) {
           quantity: 1,
           price_data: {
             currency: 'aud',
-            unit_amount: Math.round(asset.price * 100),
-            product_data: {
-              name: asset.title,
-              description: asset.allowance ? `${asset.type} · ${asset.allowance}` : asset.type,
-            },
+            unit_amount: item.amountCents,
+            product_data: { name: item.name, description: item.description },
           },
         },
       ],
-      metadata: { assetId: asset.id },
+      metadata,
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancelled`,
     })

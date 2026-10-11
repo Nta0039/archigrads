@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { ExternalLink, MessageSquareHeart, X } from 'lucide-react'
-
-const FEEDBACK_FORM_URL =
-  'https://docs.google.com/forms/d/e/1FAIpQLSekOcd8UHVAABwHoaBppHkP19gENGNGiTeneVYI0mbSXtkA5w/viewform'
+import { FEEDBACK_FORM_URL } from '../lib/feedback'
 
 /** Post-purchase survey invitation shown on the success page. */
 export default function FeedbackModal({ onClose }) {
@@ -53,7 +51,7 @@ export default function FeedbackModal({ onClose }) {
             to be part of it.
           </p>
           <p>
-            Would you spare two minutes for a quick survey? Your honest thoughts on what worked, and what didn't, will
+            Would you spare a minute for a quick survey? Your honest thoughts on what worked, and what didn't, will
             directly shape the assets and services we build next for the architecture community.
           </p>
         </div>
@@ -74,7 +72,7 @@ export default function FeedbackModal({ onClose }) {
             onClick={onClose}
             className="inline-flex items-center justify-center gap-2 bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
           >
-            Share Feedback
+            Take the 1-minute survey
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
           </a>
         </div>

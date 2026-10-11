@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, CircleAlert, CircleCheck, Download, LoaderCircle } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, CircleAlert, CircleCheck, Download, LoaderCircle } from 'lucide-react'
 import { formatAud } from '../lib/catalogue'
 import { downloadAsset } from '../lib/download'
 import { recordSale } from '../lib/sales'
 import FeedbackModal from './FeedbackModal'
+import { FEEDBACK_FORM_URL } from '../lib/feedback'
 
 /**
  * Stripe redirects here after checkout (/success?session_id=cs_...). The
@@ -157,6 +158,26 @@ export default function SuccessPage({ onBack }) {
                 ? 'Paid securely with Stripe. Your card statement will show this purchase.'
                 : 'Stripe test mode: no real money was charged.'}
             </p>
+
+            {/* Always available here, even after the feedback pop-up is dismissed. */}
+            <a
+              href={FEEDBACK_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group mx-auto mt-10 flex max-w-sm items-center justify-between gap-4 border border-neutral-300 px-4 py-3 text-left text-sm transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+            >
+              <span>
+                <span className="block text-[10px] font-medium uppercase tracking-[0.25em] text-neutral-400 dark:text-neutral-500">
+                  Help us improve
+                </span>
+                <span className="mt-1 block font-medium text-neutral-900 dark:text-neutral-100">Take a 1-minute survey</span>
+              </span>
+              <ArrowUpRight
+                className="h-4 w-4 shrink-0 text-neutral-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-neutral-900 dark:group-hover:text-neutral-100"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            </a>
           </div>
         )}
 

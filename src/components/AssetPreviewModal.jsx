@@ -5,8 +5,9 @@ import { downloadAsset } from '../lib/download'
 import { FLOWING_BORDER } from '../lib/flowingBorder'
 import { useSavedAssets } from '../lib/savedAssets'
 
+/** Raw bytes -> "850 KB", "12.4 MB" or "1.20 GB"; null when the size is unknown. */
 const formatBytes = (bytes) => {
-  if (bytes == null) return null
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return null
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
   if (bytes < 1024 ** 3) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`
@@ -27,7 +28,6 @@ const DRAFTING_GRID = {
 export default function AssetPreviewModal({ asset, onClose }) {
   const closeRef = useRef(null)
   const [meta, setMeta] = useState({ status: 'loading' })
-  const [dimensions, setDimensions] = useState(null)
   const [download, setDownload] = useState({ status: 'idle', message: '' })
   const checkout = useCheckout(asset)
   const { saved, toggle } = useSavedAssets()
@@ -52,7 +52,8 @@ export default function AssetPreviewModal({ asset, onClose }) {
     }
   }, [onClose])
 
-  // File name and size come from /api/asset-meta (the source bucket is private).
+  // The real size of the downloadable file (all parts added up) comes from
+  // /api/asset-meta: it is not a database column, and the bucket is private.
   useEffect(() => {
     if (!asset.hasSource) return setMeta({ status: 'none' })
     let cancelled = false
@@ -75,17 +76,26 @@ export default function AssetPreviewModal({ asset, onClose }) {
     }
   }
 
+  // Unknown or unavailable sizes show a dash instead of breaking the panel.
   const size =
-    meta.status === 'ready' ? (formatBytes(meta.bytes) ?? 'Unknown') : meta.status === 'loading' ? '…' : '—'
+    meta.status === 'loading' ? '…' : meta.status === 'ready' ? (formatBytes(meta.bytes) ?? '—') : '—'
+  const formats = (
+    <span className="flex flex-wrap justify-end gap-1.5">
+      {asset.formats.map((format) => (
+        <span
+          key={format}
+          className="border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-700 dark:border-neutral-700 dark:text-neutral-300"
+        >
+          {format.replace('.', '')}
+        </span>
+      ))}
+    </span>
+  )
   const details = [
     ['Category', asset.type],
-    asset.subject && ['Subject', asset.subject],
-    ['File', meta.status === 'ready' ? meta.filename : meta.status === 'loading' ? '…' : '—'],
-    meta.status === 'ready' && meta.parts > 1 && ['Parts', `${meta.parts} files, joined on download`],
+    ['Format', formats],
     ['Size', size],
-    ['Preview', dimensions ? `${dimensions.width} × ${dimensions.height} px` : '…'],
-    ['Licence', premium ? asset.allowance ?? 'Single purchase' : 'Free download'],
-  ].filter(Boolean)
+  ]
 
   return (
     <div
@@ -110,9 +120,6 @@ export default function AssetPreviewModal({ asset, onClose }) {
               src={asset.imageUrl}
               alt={asset.title}
               draggable={false}
-              onLoad={(event) =>
-                setDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })
-              }
               className="max-h-full max-w-full object-contain md:max-h-[calc(85vh-2rem)]"
             />
           ) : (
@@ -142,20 +149,9 @@ export default function AssetPreviewModal({ asset, onClose }) {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 px-5 pt-5">
-            {asset.formats.map((format) => (
-              <span
-                key={format}
-                className="border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-700 dark:border-neutral-700 dark:text-neutral-300"
-              >
-                {format.replace('.', '')}
-              </span>
-            ))}
-          </div>
-
           <dl className="mx-5 mt-5 border-t border-neutral-200 dark:border-neutral-800">
             {details.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 border-b border-neutral-200 py-2.5 text-sm dark:border-neutral-800">
+              <div key={label} className="flex min-h-11 items-center justify-between gap-4 border-b border-neutral-200 py-2.5 text-sm dark:border-neutral-800">
                 <dt className="shrink-0 text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
                   {label}
                 </dt>

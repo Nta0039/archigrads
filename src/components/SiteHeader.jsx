@@ -3,10 +3,10 @@ import { FLOWING_BORDER } from '../lib/flowingBorder'
 import ThemeToggle from '../theme/ThemeToggle'
 
 const quietButton =
-  'whitespace-nowrap rounded-md px-2.5 py-2 text-sm text-neutral-600 sm:px-3 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
+  'whitespace-nowrap px-2.5 py-2 text-sm text-neutral-600 sm:px-3 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
 
 const solidButton =
-  'whitespace-nowrap rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white sm:px-4 transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300'
+  'whitespace-nowrap bg-neutral-900 px-3 py-2 text-sm font-medium text-white sm:px-4 transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300'
 
 /** Sticky site header: logo (+ admin link) on the left, account controls and theme toggle on the right. */
 export default function SiteHeader({
@@ -44,7 +44,7 @@ export default function SiteHeader({
             aria-label="AI Studio"
             // Same flowing light border as the "AI Generated" category pill; solid while on the page.
             // 36px tall, like Login / Sign Up (text-sm, py-2 + a 1px border, or py-[6px] + 2px here).
-            className={`flex items-center gap-2 whitespace-nowrap rounded-md text-sm transition-[color,background-color,border-color,box-shadow] ${
+            className={`flex items-center gap-2 whitespace-nowrap text-sm transition-[color,background-color,border-color,box-shadow] ${
               page === 'studio'
                 ? 'border border-neutral-900 bg-neutral-900 px-3 py-[7px] font-medium text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
                 : `${FLOWING_BORDER} px-[11px] py-[6px]`
@@ -62,7 +62,7 @@ export default function SiteHeader({
               aria-current={page === 'dashboard' ? 'page' : undefined}
               aria-label="Dashboard"
               title="Dashboard"
-              className={`hidden items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors sm:flex ${
+              className={`hidden items-center gap-2 border px-3 py-1.5 text-xs font-medium transition-colors sm:flex ${
                 page === 'dashboard'
                   ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
                   : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
@@ -83,7 +83,7 @@ export default function SiteHeader({
                   onClick={onTogglePresentation}
                   aria-pressed={isPresentationMode}
                   title="Fill the dashboard with sample data"
-                  className={`mr-1 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`mr-1 flex items-center gap-2 border px-3 py-1.5 text-xs font-medium transition-colors ${
                     isPresentationMode
                       ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
                       : 'border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
@@ -94,7 +94,7 @@ export default function SiteHeader({
                   {/* Status light: off = hollow, on = filled. */}
                   <span
                     aria-hidden
-                    className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                    className={`h-1.5 w-1.5 transition-colors ${
                       isPresentationMode
                         ? 'bg-white dark:bg-neutral-900'
                         : 'border border-neutral-400 dark:border-neutral-500'
@@ -105,7 +105,7 @@ export default function SiteHeader({
               <div className="flex items-center gap-2.5 pr-1">
                 <span
                   aria-hidden
-                  className="flex h-8 w-8 items-center justify-center rounded-md bg-neutral-200 text-xs font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                  className="flex h-8 w-8 items-center justify-center bg-neutral-200 text-xs font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
                 >
                   {user.name.slice(0, 1).toUpperCase()}
                 </span>

@@ -89,7 +89,7 @@ export default function App() {
   else if (showDashboard) content = <AdminDashboard onBack={() => navigate('library')} live={isPresentationMode} />
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:bg-neutral-950 dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
+    <div className="min-h-screen text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
       <SiteHeader
         user={user}
         page={showDashboard ? 'dashboard' : page === 'studio' ? 'studio' : 'library'}
@@ -108,7 +108,7 @@ export default function App() {
               type="button"
               onClick={() => setCheckoutCancelled(false)}
               aria-label="Dismiss"
-              className="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              className="p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
             >
               <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </button>

@@ -446,7 +446,7 @@ export default function AIGeneratorPage({ onBack }) {
           event.preventDefault()
           generate()
         }}
-        className="mx-auto mt-12 max-w-3xl rounded-lg border border-neutral-300 bg-white p-2 transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-neutral-100"
+        className="mx-auto mt-12 max-w-3xl border border-neutral-300 bg-white p-2 transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-neutral-100"
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pt-1">
           <div role="group" aria-label="Output format" className="flex gap-1">
@@ -456,7 +456,7 @@ export default function AIGeneratorPage({ onBack }) {
                 type="button"
                 onClick={() => chooseFormat(option)}
                 aria-pressed={format === option}
-                className={`rounded-md border px-3 py-1 font-mono text-xs font-medium tracking-tight transition-colors ${
+                className={`border px-3 py-1 font-mono text-xs font-medium tracking-tight transition-colors ${
                   format === option
                     ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
                     : 'border-neutral-200 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100'
@@ -530,7 +530,7 @@ export default function AIGeneratorPage({ onBack }) {
           <button
             type="submit"
             disabled={!canGenerate}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+            className="inline-flex items-center justify-center gap-2 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
           >
             {status === 'generating' ? (
               <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
@@ -567,7 +567,7 @@ export default function AIGeneratorPage({ onBack }) {
                 setPrompt(example)
                 inputRef.current?.focus()
               }}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs text-neutral-600 transition-colors hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100"
+              className="border border-neutral-300 px-3 py-1.5 text-xs text-neutral-600 transition-colors hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:text-neutral-100"
             >
               {example}
             </button>
@@ -577,7 +577,7 @@ export default function AIGeneratorPage({ onBack }) {
 
       {status === 'error' && (
         <section className="mx-auto mt-10 max-w-3xl">
-          <div className="relative aspect-[16/9] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800" style={CHECKERBOARD}>
+          <div className="relative aspect-[16/9] overflow-hidden border border-neutral-200 dark:border-neutral-800" style={CHECKERBOARD}>
             <ErrorState message={error} onRetry={generate} />
           </div>
         </section>
@@ -600,7 +600,7 @@ export default function AIGeneratorPage({ onBack }) {
               <button
                 type="button"
                 onClick={cancel}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                className="inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 font-medium transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               >
                 <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                 Cancel
@@ -635,7 +635,7 @@ export default function AIGeneratorPage({ onBack }) {
                 type="button"
                 onClick={generate}
                 disabled={!canGenerate}
-                className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:hover:border-neutral-100"
+                className="inline-flex items-center gap-2 border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:hover:border-neutral-100"
               >
                 <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 Generate again
@@ -679,19 +679,19 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
   const published = publishState === 'published'
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+    <article className="flex flex-col overflow-hidden border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
       <div className="relative aspect-square" style={CHECKERBOARD}>
         {slot.status === 'pending' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/70 px-4 text-center backdrop-blur-[2px] dark:bg-neutral-950/70">
-            <div className="relative h-16 w-16 overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
+            <div className="relative h-16 w-16 overflow-hidden bg-neutral-200 dark:bg-neutral-800">
               <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" />
             </div>
             <p key={slot.phase} className="fade-in text-xs font-medium text-neutral-700 dark:text-neutral-200">
               {(PHASES[slot.phase] ?? PHASES.sending).label}
             </p>
-            <div className="h-1 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+            <div className="h-1 w-24 overflow-hidden bg-neutral-200 dark:bg-neutral-800">
               <div
-                className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-out dark:bg-neutral-100"
+                className="h-full bg-neutral-900 transition-[width] duration-1000 ease-out dark:bg-neutral-100"
                 style={{ width: `${(PHASES[slot.phase] ?? PHASES.sending).progress}%` }}
               />
             </div>
@@ -710,7 +710,7 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
             className="fade-in absolute inset-0 h-full w-full object-contain p-4"
           />
         )}
-        <span className="absolute left-2 top-2 rounded bg-neutral-900/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white">
+        <span className="absolute left-2 top-2 bg-neutral-900/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white">
           {index + 1}
         </span>
       </div>
@@ -720,7 +720,7 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
           <button
             type="button"
             onClick={onDownload}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-2 text-xs font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 border border-neutral-300 px-2.5 py-2 text-xs font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
           >
             <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Download {slot.image.svgSrc ? '.svg' : '.png'}
@@ -730,7 +730,7 @@ function ResultCard({ slot, index, run, onDownload, onPublish }) {
             onClick={onPublish}
             disabled={published || publishState === 'publishing'}
             title={published ? `Published as “${slot.publish.title}”` : 'Add to the public asset library'}
-            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-default ${
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-default ${
               published
                 ? 'border border-neutral-300 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400'
                 : 'bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-70 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300'
@@ -786,7 +786,7 @@ function blobToBase64(blob) {
 function ErrorState({ message, onRetry }) {
   return (
     <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center bg-white/85 px-6 text-center backdrop-blur-sm dark:bg-neutral-950/85">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+      <span className="flex h-12 w-12 items-center justify-center bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
         <CircleAlert className="h-6 w-6" strokeWidth={1.5} aria-hidden />
       </span>
       <p className="mt-5 font-medium text-neutral-900 dark:text-neutral-100">We couldn't generate this asset</p>
@@ -794,7 +794,7 @@ function ErrorState({ message, onRetry }) {
       <button
         type="button"
         onClick={onRetry}
-        className="mt-6 inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-100"
+        className="mt-6 inline-flex items-center gap-2 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-100"
       >
         <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         Try again
@@ -847,7 +847,7 @@ function CascadeControl({
       >
         <div className="overflow-hidden">
           <div
-            className={`flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors ${
+            className={`flex items-center gap-2 border px-2 py-1.5 transition-colors ${
               open && !detail
                 ? 'border-neutral-400 bg-neutral-50 dark:border-neutral-500 dark:bg-neutral-800/60'
                 : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/40'
@@ -864,7 +864,7 @@ function CascadeControl({
                   tabIndex={open ? 0 : -1}
                   onClick={() => onDetailChange(option)}
                   aria-pressed={detail === option}
-                  className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
                     detail === option
                       ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
                       : 'text-neutral-500 hover:bg-white hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100'
@@ -883,7 +883,7 @@ function CascadeControl({
 
 function Segmented({ label, options, value, onChange, stretch = false, disabledOptions = [], disabledReason }) {
   return (
-    <div role="group" aria-label={label} className={`flex rounded-md border border-neutral-200 p-0.5 text-xs dark:border-neutral-700 ${stretch ? 'w-full' : ''}`}>
+    <div role="group" aria-label={label} className={`flex border border-neutral-200 p-0.5 text-xs dark:border-neutral-700 ${stretch ? 'w-full' : ''}`}>
       {options.map((option) => {
         const disabled = disabledOptions.includes(option)
         return (
@@ -894,7 +894,7 @@ function Segmented({ label, options, value, onChange, stretch = false, disabledO
             aria-pressed={value === option}
             disabled={disabled}
             title={disabled ? disabledReason : undefined}
-            className={`rounded px-2.5 py-1.5 font-medium transition-colors ${stretch ? 'flex-1' : ''} ${
+            className={`px-2.5 py-1.5 font-medium transition-colors ${stretch ? 'flex-1' : ''} ${
               disabled
                 ? 'cursor-not-allowed text-neutral-300 line-through decoration-1 dark:text-neutral-600'
                 : value === option

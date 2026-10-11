@@ -29,18 +29,18 @@ export default function FeedbackModal({ onClose }) {
         aria-modal="true"
         aria-labelledby="feedback-title"
         aria-describedby="feedback-body"
-        className="relative w-full max-w-md rounded-lg border border-neutral-200 bg-white p-8 shadow-2xl shadow-neutral-950/10 dark:border-neutral-800 dark:bg-neutral-900"
+        className="relative w-full max-w-md border border-neutral-200 bg-white p-8 shadow-2xl shadow-neutral-950/10 dark:border-neutral-800 dark:bg-neutral-900"
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+          className="absolute right-4 top-4 p-2 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
         >
           <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         </button>
 
-        <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+        <span className="flex h-11 w-11 items-center justify-center bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
           <MessageSquareHeart className="h-5 w-5" strokeWidth={1.75} aria-hidden />
         </span>
 
@@ -62,7 +62,7 @@ export default function FeedbackModal({ onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-4 py-2.5 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+            className="px-4 py-2.5 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
           >
             Maybe later
           </button>
@@ -72,7 +72,7 @@ export default function FeedbackModal({ onClose }) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+            className="inline-flex items-center justify-center gap-2 bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
           >
             Share Feedback
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />

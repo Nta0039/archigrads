@@ -46,7 +46,7 @@ const TOP_ASSETS = [
   { title: 'Car', category: 'Vehicles', downloads: 187 },
 ]
 
-const card = 'rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
+const card = 'border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 const formatNumber = (value) => value.toLocaleString('en-US')
 const formatAud = (value) => `A$${value.toLocaleString('en-US')}`
@@ -157,7 +157,7 @@ export default function AdminDashboard({ onBack, live }) {
         <div className="flex flex-wrap items-center gap-2">
           {sales.length > 0 && (
             <>
-              <span className="rounded border border-neutral-900 bg-neutral-900 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900">
+              <span className="border border-neutral-900 bg-neutral-900 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900">
                 {sales.length} Stripe {sales.length === 1 ? 'sale' : 'sales'}
               </span>
               <button
@@ -165,14 +165,14 @@ export default function AdminDashboard({ onBack, live }) {
                 onClick={() => {
                   if (window.confirm('Clear the recorded Stripe sales from this browser? (Stripe itself keeps them.)')) clearSales()
                 }}
-                className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
               >
                 <RotateCcw className="h-3 w-3" strokeWidth={2} aria-hidden />
                 Reset
               </button>
             </>
           )}
-          <span className="w-fit rounded border border-neutral-300 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+          <span className="w-fit border border-neutral-300 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
             {live ? 'Sample data' : 'No data yet'}
           </span>
         </div>
@@ -235,7 +235,7 @@ function TrendChart({ live, pageViews, revenue }) {
     <section className={`${card} p-5 lg:col-span-2`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">{isRevenue ? 'Revenue (AUD)' : 'Page views'} · last 14 days</h2>
-        <div className="flex rounded-md border border-neutral-200 p-0.5 text-xs dark:border-neutral-700" role="group" aria-label="Chart series">
+        <div className="flex border border-neutral-200 p-0.5 text-xs dark:border-neutral-700" role="group" aria-label="Chart series">
           {[
             ['pageViews', 'Page views'],
             ['revenue', 'Revenue'],
@@ -245,7 +245,7 @@ function TrendChart({ live, pageViews, revenue }) {
               type="button"
               onClick={() => setSeries(value)}
               aria-pressed={series === value}
-              className={`rounded px-3 py-1 font-medium transition-colors ${
+              className={`px-3 py-1 font-medium transition-colors ${
                 series === value
                   ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
                   : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
@@ -295,7 +295,7 @@ function TrendChart({ live, pageViews, revenue }) {
                   className="group relative flex h-full flex-1 items-end outline-none"
                 >
                   <div
-                    className="w-full rounded-t-[4px] bg-neutral-800 transition-[height,opacity] duration-700 ease-out group-hover:opacity-80 group-focus-visible:opacity-80 motion-reduce:transition-none dark:bg-neutral-300"
+                    className="w-full bg-neutral-800 transition-[height,opacity] duration-700 ease-out group-hover:opacity-80 group-focus-visible:opacity-80 motion-reduce:transition-none dark:bg-neutral-300"
                     style={{
                       height: `${(value / max) * 100}%`,
                       // Bars rise left to right when the data appears.
@@ -308,7 +308,7 @@ function TrendChart({ live, pageViews, revenue }) {
                     </span>
                   )}
                   {shown && (
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs shadow-lg group-hover:block group-focus-visible:block dark:border-neutral-700 dark:bg-neutral-950">
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap border border-neutral-200 bg-white px-2.5 py-1.5 text-xs shadow-lg group-hover:block group-focus-visible:block dark:border-neutral-700 dark:bg-neutral-950">
                       <span className="block text-neutral-500 dark:text-neutral-400">{today ? `${day} (today)` : day}</span>
                       <span className="font-semibold tabular-nums">
                         {format(value)} {isRevenue ? '' : 'views'}
@@ -359,7 +359,7 @@ function RecentActivity({ live, sales }) {
               style={{ animationDelay: `${index * 70}ms` }}
             >
               <span
-                className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center ${
                   real
                     ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
                     : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
@@ -377,7 +377,7 @@ function RecentActivity({ live, sales }) {
         </ul>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500">
+          <span className="flex h-10 w-10 items-center justify-center bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500">
             <Inbox className="h-5 w-5" strokeWidth={1.75} aria-hidden />
           </span>
           <p className="mt-3 text-sm font-medium">No recent activity</p>
@@ -416,9 +416,9 @@ function TopAssets({ live }) {
                   <td className="px-5 py-3 text-neutral-500 dark:text-neutral-400">{category}</td>
                   <td className="px-5 py-3 text-right tabular-nums">{downloads}</td>
                   <td className="px-5 py-3">
-                    <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800">
+                    <div className="h-1.5 bg-neutral-100 dark:bg-neutral-800">
                       <div
-                        className="h-full rounded-full bg-neutral-800 dark:bg-neutral-300"
+                        className="h-full bg-neutral-800 dark:bg-neutral-300"
                         style={{ width: `${(downloads / max) * 100}%` }}
                       />
                     </div>

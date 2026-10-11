@@ -194,7 +194,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
           <form
             role="search"
             onSubmit={(event) => event.preventDefault()}
-            className="mx-auto mt-10 flex max-w-3xl items-stretch overflow-hidden rounded-lg border border-neutral-300 bg-white transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus-within:border-neutral-100"
+            className="mx-auto mt-10 flex max-w-3xl items-stretch overflow-hidden border border-neutral-300 bg-white transition-colors focus-within:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus-within:border-neutral-100"
           >
             <label htmlFor="asset-search" className="flex items-center pl-5 text-neutral-400 dark:text-neutral-500">
               <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -312,7 +312,7 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-4 rounded-md border border-neutral-300 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+              className="mt-4 border border-neutral-300 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
             >
               Clear filters
             </button>
@@ -345,7 +345,7 @@ function Pill({ active, onClick, icon: Icon, effect, children }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group/pill flex items-center gap-2 rounded-md text-sm transition-[color,background-color,border-color,box-shadow] sm:text-base ${
+      className={`group/pill flex items-center gap-2 text-sm transition-[color,background-color,border-color,box-shadow] sm:text-base ${
         // An effect with ownsBox sets its own border width, padding and weight.
         highlighted && effect.ownsBox ? '' : 'border px-4 py-2 font-medium'
       } ${
@@ -383,7 +383,7 @@ function PricingRules({ categories, activeType, onSelectType }) {
   return (
     <section
       aria-labelledby="pricing-rules-title"
-      className="fade-in mb-8 rounded-lg border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-700 dark:bg-neutral-800/50"
+      className="fade-in mb-8 border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-700 dark:bg-neutral-800/50"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 id="pricing-rules-title" className="flex items-center gap-2 text-sm font-semibold">
@@ -393,7 +393,7 @@ function PricingRules({ categories, activeType, onSelectType }) {
         <p className="text-xs text-neutral-500 dark:text-neutral-400">All prices in Australian dollars (AUD)</p>
       </div>
 
-      <ul className="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-700 dark:bg-neutral-700">
+      <ul className="mt-4 grid grid-cols-1 gap-px overflow-hidden border border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-700 dark:bg-neutral-700">
         {tiers.map(([type, { price, allowance }]) => {
           const Icon = TYPE_ICONS[type] ?? Folder
           const isActive = activeType === type
@@ -526,7 +526,7 @@ function AdminNotice({ notice, onUndo, onDismiss }) {
     <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
       <div
         role="status"
-        className="fade-in flex max-w-lg items-center gap-4 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-white shadow-2xl dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900"
+        className="fade-in flex max-w-lg items-center gap-4 border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-white shadow-2xl dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900"
       >
         {notice.kind === 'hidden' ? (
           <>
@@ -556,14 +556,14 @@ function AdminNotice({ notice, onUndo, onDismiss }) {
 function GridSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading assets">
-      <div className="h-5 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+      <div className="h-5 w-24 animate-pulse bg-neutral-200 dark:bg-neutral-800" />
       <div className="mt-6 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }, (_, index) => (
-          <div key={index} className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+          <div key={index} className="overflow-hidden border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
             <div className="aspect-[4/3] animate-pulse bg-neutral-200 dark:bg-neutral-800" />
             <div className="space-y-2 px-4 py-3">
-              <div className="h-3.5 w-3/4 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
-              <div className="h-2.5 w-1/2 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+              <div className="h-3.5 w-3/4 animate-pulse bg-neutral-200 dark:bg-neutral-800" />
+              <div className="h-2.5 w-1/2 animate-pulse bg-neutral-100 dark:bg-neutral-800/60" />
             </div>
           </div>
         ))}
@@ -574,14 +574,14 @@ function GridSkeleton() {
 
 function CatalogueError({ error, onRetry }) {
   return (
-    <div role="alert" className="mx-auto mt-10 max-w-md rounded-lg border border-neutral-200 bg-white p-8 text-center dark:border-neutral-800 dark:bg-neutral-900">
+    <div role="alert" className="mx-auto mt-10 max-w-md border border-neutral-200 bg-white p-8 text-center dark:border-neutral-800 dark:bg-neutral-900">
       <CircleAlert className="mx-auto h-8 w-8 text-neutral-400" strokeWidth={1.5} aria-hidden />
       <p className="mt-4 font-medium">We couldn't load the asset library</p>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{error?.message}</p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-6 inline-flex items-center gap-2 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+        className="mt-6 inline-flex items-center gap-2 border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
       >
         <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         Try again
@@ -618,7 +618,7 @@ function useCheckout(asset) {
 function PriceTag({ asset, checkout }) {
   if (asset.priceType === 'free') {
     return (
-      <span className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+      <span className="shrink-0 border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
         Free
       </span>
     )
@@ -632,7 +632,7 @@ function PriceTag({ asset, checkout }) {
       disabled={loading}
       aria-label={`Buy ${asset.title} for ${formatAud(asset.price)} (${asset.allowance})`}
       title="Buy securely with Stripe"
-      className="shrink-0 rounded-md bg-neutral-900 px-2.5 py-1.5 text-right text-white shadow-sm transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300 dark:focus-visible:outline-neutral-100"
+      className="shrink-0 bg-neutral-900 px-2.5 py-1.5 text-right text-white shadow-sm transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300 dark:focus-visible:outline-neutral-100"
     >
       <span className="flex items-center justify-end gap-1 text-sm font-semibold leading-none tabular-nums">
         {loading ? (
@@ -651,7 +651,7 @@ function PriceTag({ asset, checkout }) {
 
 function FormatBadge({ format }) {
   return (
-    <span className="rounded border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+    <span className="border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
       {format.replace('.', '')}
     </span>
   )
@@ -667,7 +667,7 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide }) {
   const checkout = useCheckout(asset)
 
   return (
-    <figure className="group overflow-hidden rounded-lg border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
+    <figure className="group overflow-hidden border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600">
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
         {showImage ? (
           <img
@@ -687,7 +687,7 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide }) {
         {asset.priceType === 'premium' ? null : asset.hasSource ? (
           <FreeDownloadButton asset={asset} />
         ) : (
-          <span className="absolute left-3 top-3 rounded bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
+          <span className="absolute left-3 top-3 bg-white/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-500 dark:bg-neutral-950/80 dark:text-neutral-400">
             Coming soon
           </span>
         )}
@@ -698,7 +698,7 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide }) {
             onClick={() => onHide(asset)}
             aria-label={`Hide ${asset.title} from the library`}
             title="Hide from the library (admin)"
-            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-neutral-700 shadow-sm backdrop-blur transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:bg-neutral-950/85 dark:text-neutral-200 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-900"
+            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 border border-neutral-200 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-neutral-700 shadow-sm backdrop-blur transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:bg-neutral-950/85 dark:text-neutral-200 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-900"
           >
             <EyeOff className="h-3 w-3" strokeWidth={2} aria-hidden />
             Hide

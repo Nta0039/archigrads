@@ -32,15 +32,39 @@ html {
   transition-timing-function: ease-in-out !important;
 }
 
+/* Architectural rigor: every corner is a sharp 90 degrees, including native
+   controls (inputs, selects, dialogs) that browsers round by default. */
+@layer base {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    border-radius: 0;
+  }
+}
+
+/* Drafting paper: a faint 40 px grid over the page colour. The lines are 1 px
+   gradients, so they stay hairline-sharp at any zoom or screen density. */
+:root {
+  --page: #f5f5f5;
+  --grid-line: rgba(0, 0, 0, 0.045);
+}
+
+.dark {
+  --page: #0a0a0a;
+  --grid-line: rgba(255, 255, 255, 0.04);
+}
+
 body {
-  background-color: #f5f5f5;
+  background-color: var(--page);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-}
-
-.dark body {
-  background-color: #0a0a0a;
 }
 
 @keyframes fadeIn {

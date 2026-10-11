@@ -91,7 +91,7 @@ export default function SuccessPage({ onBack }) {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-6 py-20">
-      <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center sm:p-10 dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="border border-neutral-200 bg-white p-8 text-center sm:p-10 dark:border-neutral-800 dark:bg-neutral-900">
         {state.status === 'loading' && (
           <>
             <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-neutral-400" strokeWidth={1.5} aria-hidden />
@@ -121,7 +121,7 @@ export default function SuccessPage({ onBack }) {
               {state.session.email && <> A receipt is on its way to {state.session.email}.</>}
             </p>
 
-            <dl className="mx-auto mt-8 grid max-w-sm grid-cols-2 gap-px overflow-hidden rounded-lg border border-neutral-200 bg-neutral-200 text-left text-sm dark:border-neutral-800 dark:bg-neutral-800">
+            <dl className="mx-auto mt-8 grid max-w-sm grid-cols-2 gap-px overflow-hidden border border-neutral-200 bg-neutral-200 text-left text-sm dark:border-neutral-800 dark:bg-neutral-800">
               <div className="bg-neutral-50 px-4 py-3 dark:bg-neutral-950">
                 <dt className="text-xs text-neutral-500 dark:text-neutral-400">Amount paid</dt>
                 <dd className="mt-1 font-semibold tabular-nums">{formatAud(state.session.amount)} AUD</dd>
@@ -137,7 +137,7 @@ export default function SuccessPage({ onBack }) {
                 type="button"
                 onClick={startDownload}
                 disabled={download.status === 'loading'}
-                className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-md bg-neutral-900 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:px-8 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-neutral-900 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:px-8 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
               >
                 {download.status === 'loading' ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />

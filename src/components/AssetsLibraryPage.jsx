@@ -207,8 +207,8 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   return (
     <>
       {/* Hero & search: full-bleed photo (public/background1.png). The text sits
-          in the sky; sizing lives in .hero-photo (index.css): the photo sits as in a 16:9
-          bottom-pinned frame and the hero ends just above the pool, so the pavilion,
+          in the sky; sizing lives in .hero-photo (index.css): the height follows the window
+          so the filters and first cards show above the fold, and the pavilion,
           terrace and mountains always sit below the search bar. Dark mode swaps in the
           night render of the same view (public/background1_night.jpg) with light text. */}
       <section className="hero-photo relative overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
@@ -218,21 +218,21 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-neutral-950/55 dark:via-neutral-950/20"
         />
-        <div className="relative mx-auto max-w-7xl px-6 pb-12 pt-10 text-center sm:pt-12 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-6 pb-10 pt-8 text-center sm:pt-10 lg:px-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-700 dark:text-neutral-300">
             Spend Less. Choose More. Design Better.
           </p>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-6xl dark:text-white">
+          <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-6xl dark:text-white">
             ArchiGrads Library
           </h1>
-          <p className="mx-auto mt-5 max-w-xl font-medium leading-relaxed text-neutral-800 dark:text-neutral-200">
+          <p className="mx-auto mt-4 max-w-xl font-medium leading-relaxed text-neutral-800 dark:text-neutral-200">
             Free 2D cutouts, CAD blocks and Revit families, plus community assets made in AI Studio.
           </p>
 
           <form
             role="search"
             onSubmit={(event) => event.preventDefault()}
-            className="mx-auto mt-10 flex max-w-3xl items-stretch overflow-hidden border-2 border-neutral-950 bg-white text-neutral-900 shadow-xl shadow-neutral-950/10 dark:border-white dark:bg-neutral-950/85 dark:text-neutral-100 dark:shadow-black/40"
+            className="mx-auto mt-8 flex max-w-3xl items-stretch overflow-hidden border-2 border-neutral-950 bg-white text-neutral-900 shadow-xl shadow-neutral-950/10 dark:border-white dark:bg-neutral-950/85 dark:text-neutral-100 dark:shadow-black/40"
           >
             <label htmlFor="asset-search" className="flex items-center pl-5 text-neutral-500 dark:text-neutral-400">
               <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />

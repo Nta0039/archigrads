@@ -124,15 +124,19 @@ body {
   }
 }
 
-/* Homepage hero photo (AssetsLibraryPage). The photo keeps the size and position
-   it has in a 16:9 frame pinned to the bottom (--frame, clamped), but the hero
-   itself stops 11% of the photo's height short of the bottom, just above the
-   pool, so the filter bar starts where the water reflection would begin. */
+/* Homepage hero photo (AssetsLibraryPage). The hero's height follows the window
+   (clamped), so on a 16:9 screen the hero, the filter bar and the top of the
+   first row of cards all fit above the fold. The photo is pinned to the bottom
+   with its last 11% (the pool reflection) pushed below the edge, and is never
+   shorter than "cover" needs, so the pavilion always sits just above the filters. */
 .hero-photo {
-  --frame: clamp(720px, 56.25vw, 960px);
-  --photo-h: max(var(--frame), 56.28vw); /* "cover" height for the 1.777:1 photos */
-  min-height: calc(var(--frame) - 0.11 * var(--photo-h));
+  /* Wider screens show the photo larger, so they need more height to keep the
+     pavilion below the search bar; the minimum grows with the width. */
+  --hero-min: max(500px, calc(338px + 12.4vw));
+  --hero-h: clamp(var(--hero-min), calc(100svh - 360px), 680px);
+  --photo-h: max(56.28vw, calc(var(--hero-h) / 0.89)); /* the 1.777:1 photos */
+  min-height: var(--hero-h);
   background-size: auto var(--photo-h);
-  background-position: center calc(var(--frame) - var(--photo-h));
+  background-position: center bottom calc(-0.11 * var(--photo-h));
   background-repeat: no-repeat;
 }

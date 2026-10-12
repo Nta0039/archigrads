@@ -7,6 +7,10 @@ import AdminDashboard from './components/AdminDashboard'
 import SuccessPage from './components/SuccessPage'
 import AIGeneratorPage from './components/AIGeneratorPage'
 import CookieBanner from './components/CookieBanner'
+import Footer from './components/Footer'
+import AboutPage from './components/AboutPage'
+import TermsPage from './components/TermsPage'
+import PrivacyPage from './components/PrivacyPage'
 
 /**
  * useState that survives a reload of this tab. Used for the mocked login so the
@@ -32,10 +36,18 @@ function useSessionState(key, initial) {
   return [value, setValue]
 }
 
-/** Path-based pages: "/" library, "/studio" AI Studio, "/success" Stripe return page. */
-const PAGE_PATHS = { library: '/', studio: '/studio', dashboard: '/' }
-const initialPage =
-  { '/success': 'success', '/studio': 'studio' }[window.location.pathname.replace(/\/+$/, '')] ?? 'library'
+/**
+ * Path-based pages: "/" library, "/studio" AI Studio, "/success" Stripe return
+ * page, plus the footer's "/about", "/terms" and "/privacy".
+ */
+const PAGE_PATHS = { library: '/', studio: '/studio', dashboard: '/', about: '/about', terms: '/terms', privacy: '/privacy' }
+const pageFromPath = (path) =>
+  ({ '/success': 'success', '/studio': 'studio', '/about': 'about', '/terms': 'terms', '/privacy': 'privacy' })[
+    path.replace(/\/+$/, '')
+  ] ?? 'library'
+const initialPage = pageFromPath(window.location.pathname)
+// Content pages get their own history entry, so the browser's Back button returns from them.
+const HISTORY_PAGES = new Set(['about', 'terms', 'privacy'])
 
 /**
  * App shell. Auth is mocked for the assignment (no backend accounts): the demo
@@ -51,6 +63,16 @@ export default function App() {
   const [checkoutCancelled, setCheckoutCancelled] = useState(
     () => new URLSearchParams(window.location.search).get('checkout') === 'cancelled',
   )
+
+  // Back / Forward between the library and the content pages.
+  useEffect(() => {
+    const onPopState = () => {
+      setPage(pageFromPath(window.location.pathname))
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   // Tidy the address bar after reading the cancelled flag.
   useEffect(() => {
@@ -76,7 +98,10 @@ export default function App() {
 
   const navigate = (next) => {
     const path = PAGE_PATHS[next] ?? '/'
-    if (window.location.pathname !== path) window.history.replaceState(null, '', path)
+    if (window.location.pathname !== path) {
+      if (HISTORY_PAGES.has(next)) window.history.pushState(null, '', path)
+      else window.history.replaceState(null, '', path)
+    }
     setPage(next === 'dashboard' && !isAdmin ? 'library' : next)
     window.scrollTo(0, 0)
   }
@@ -88,9 +113,12 @@ export default function App() {
   if (page === 'success') content = <SuccessPage onBack={() => navigate('library')} />
   else if (page === 'studio') content = <AIGeneratorPage onBack={() => navigate('library')} />
   else if (showDashboard) content = <AdminDashboard onBack={() => navigate('library')} live={isPresentationMode} />
+  else if (page === 'about') content = <AboutPage onBack={() => navigate('library')} />
+  else if (page === 'terms') content = <TermsPage onBack={() => navigate('library')} />
+  else if (page === 'privacy') content = <PrivacyPage onBack={() => navigate('library')} />
 
   return (
-    <div className="min-h-screen text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
+    <div className="flex min-h-screen flex-col text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
       <SiteHeader
         user={user}
         page={showDashboard ? 'dashboard' : page === 'studio' ? 'studio' : 'library'}
@@ -117,14 +145,10 @@ export default function App() {
         </div>
       )}
 
-      {content}
+      {/* flex-1 keeps the footer at the bottom of the window on short pages. */}
+      <div className="flex flex-1 flex-col">{content}</div>
 
-      <footer className="border-t border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-6 py-10 text-sm text-neutral-400 sm:flex-row sm:items-center lg:px-8 dark:text-neutral-500">
-          <p>© {new Date().getFullYear()} ArchiGrads. All rights reserved.</p>
-          <p className="text-xs uppercase tracking-[0.2em]">Built for architecture students</p>
-        </div>
-      </footer>
+      <Footer onNavigate={navigate} />
 
       {authMode && (
         <AuthModal mode={authMode} onModeChange={setAuthMode} onClose={closeAuth} onLogin={handleLogin} />

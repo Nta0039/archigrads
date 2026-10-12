@@ -30,7 +30,7 @@ const PAGE_VIEWS = [812, 904, 768, 655, 980, 1032, 1104, 990, 1060, 874, 790, 11
 const REVENUE = [90, 120, 60, 40, 150, 170, 130, 110, 160, 90, 70, 180, 200, 140]
 
 const ACTIVITY = [
-  { icon: ShoppingBag, text: 'Premium purchase · Presentation Live Demo', who: 'student.042@example.edu', time: '4 min ago' },
+  { icon: ShoppingBag, text: "Premium purchase · Old People's Home 4", who: 'student.042@example.edu', time: '4 min ago' },
   { icon: ArrowDownToLine, text: 'Downloaded · Walking Figure', who: 'student.117@example.edu', time: '12 min ago' },
   { icon: UserPlus, text: 'New sign-up', who: 'student.203@example.edu', time: '27 min ago' },
   { icon: ArrowDownToLine, text: 'Downloaded · Car', who: 'student.088@example.edu', time: '41 min ago' },

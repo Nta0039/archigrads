@@ -35,7 +35,7 @@ function toCategory(row) {
 
 /** Database row -> the asset shape the UI uses. */
 function toAsset(row, category, client) {
-  // An asset's own price_cents (e.g. the A$1 live demo) overrides its category.
+  // An asset's own price_cents (e.g. the A$5 SketchUp models) overrides its category.
   const price = row.price_cents ? row.price_cents / 100 : (category?.price ?? null)
   return {
     id: row.slug,

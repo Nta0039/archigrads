@@ -24,7 +24,9 @@ import { FLOWING_BORDER } from '../lib/flowingBorder'
 import { downloadAsset } from '../lib/download'
 import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
-import { flashSale } from '../lib/pricing'
+import { flashSale, isOnSale } from '../lib/pricing'
+import { useSaleEpoch } from '../lib/useFlashSale'
+import FlashSaleCountdown from './FlashSaleCountdown'
 import { useSavedAssets } from '../lib/savedAssets'
 import AssetPreviewModal from './AssetPreviewModal'
 
@@ -177,17 +179,22 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   const formats = useMemo(() => collectFormats(catalogue.assets), [catalogue.assets])
   const activeCategory = categoryOptions.find((option) => option.label === category) ?? categoryOptions[0]
 
-  const visibleAssets = useMemo(
-    () =>
-      catalogue.assets.filter(
-        (asset) =>
-          (!priceType || asset.priceType === priceType) &&
-          activeCategory.matches(asset) &&
-          (!format || asset.formats.includes(format)) &&
-          matchesQuery(asset, query.trim()),
-      ),
-    [catalogue.assets, query, priceType, activeCategory, format],
-  )
+  // Assets on a flash sale are pinned to the top (A-Z); everything else keeps
+  // its catalogue order. saleEpoch changes only when a sale starts or ends.
+  const saleEpoch = useSaleEpoch()
+  const visibleAssets = useMemo(() => {
+    const matching = catalogue.assets.filter(
+      (asset) =>
+        (!priceType || asset.priceType === priceType) &&
+        activeCategory.matches(asset) &&
+        (!format || asset.formats.includes(format)) &&
+        matchesQuery(asset, query.trim()),
+    )
+    const now = Date.now()
+    const onSale = matching.filter((asset) => isOnSale(asset, now)).sort((a, b) => a.title.localeCompare(b.title))
+    return onSale.length ? [...onSale, ...matching.filter((asset) => !onSale.includes(asset))] : matching
+    // saleEpoch is a recompute trigger, not read directly.
+  }, [catalogue.assets, query, priceType, activeCategory, format, saleEpoch])
 
   const hasFilters = query.trim() !== '' || priceType !== null || category !== 'All' || format !== null
   const clearFilters = () => {
@@ -595,23 +602,7 @@ function CatalogueError({ error, onRetry }) {
  * opens the preview modal (the click bubbles to the card); checkout itself is
  * only started from the modal's "Buy now".
  */
-/**
- * Re-renders a flash-sale price chip every 30 s, so a page left open across
- * Saturday or Monday midnight (Sydney) switches price. Other chips never tick.
- */
-function useSaleClock(asset) {
-  const hasSale = asset.priceType === 'premium' && flashSale(asset.id, Math.round(asset.price * 100)) !== null
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!hasSale) return undefined
-    const timer = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(timer)
-  }, [hasSale])
-  return now
-}
-
-function PriceTag({ asset }) {
-  const now = useSaleClock(asset)
+function PriceTag({ asset, sale }) {
   if (asset.priceType === 'free') {
     return (
       <span className="shrink-0 border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -621,7 +612,6 @@ function PriceTag({ asset }) {
   }
 
   // Weekday flash sale: the chip shows the sale price with the normal one struck through.
-  const sale = flashSale(asset.id, Math.round(asset.price * 100), now)
   const price = sale ? sale.priceCents / 100 : asset.price
   return (
     <button
@@ -657,6 +647,13 @@ function FormatBadge({ format }) {
 const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview }) {
   const [failed, setFailed] = useState(false)
   const showImage = asset.imageUrl && !failed
+  // Flash-sale state, recomputed only when a sale starts or ends.
+  const saleEpoch = useSaleEpoch()
+  const sale = useMemo(
+    () => (asset.priceType === 'premium' ? flashSale(asset.id, Math.round(asset.price * 100), Date.now()) : null),
+    [asset, saleEpoch], // saleEpoch: recompute when a sale starts or ends
+  )
+  const saleActive = Boolean(sale?.active)
 
   // A click anywhere on the card opens the preview, except on controls that
   // act directly (free Download, admin Hide), which carry data-card-action.
@@ -693,6 +690,15 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
           </div>
         )}
 
+        {saleActive && (
+          // Right-angled triangle badge in the top-left corner (clip-path, no rounding).
+          <span aria-hidden className="pointer-events-none absolute left-0 top-0 z-10 h-16 w-16 bg-red-600 [clip-path:polygon(0_0,100%_0,0_100%)]">
+            <span className="absolute left-[3px] top-[17px] w-[38px] -rotate-45 text-center text-[10px] font-black uppercase leading-none tracking-[0.12em] text-white">
+              Sale
+            </span>
+          </span>
+        )}
+
         {asset.priceType === 'premium' ? null : asset.hasSource ? (
           <FreeDownloadButton asset={asset} />
         ) : (
@@ -718,6 +724,7 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
 
       <figcaption className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
         <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-200" title={asset.title}>
+          {saleActive && <span className="sr-only">On sale: </span>}
           {asset.title}
         </p>
         <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-500">
@@ -729,7 +736,10 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
               <FormatBadge key={format} format={format} />
             ))}
           </div>
-          <PriceTag asset={asset} />
+          <div className="flex min-w-0 flex-wrap items-end justify-end gap-x-3 gap-y-1.5">
+            {saleActive && <FlashSaleCountdown variant="card" endsAt={sale.endsAt} />}
+            <PriceTag asset={asset} sale={sale} />
+          </div>
         </div>
       </figcaption>
     </figure>

@@ -67,3 +67,25 @@ export function flashSale(assetId, normalCents, now = Date.now()) {
   const endsAt = sydneyMidnight(saturday.getUTCFullYear(), saturday.getUTCMonth() + 1, saturday.getUTCDate())
   return { active, priceCents: active ? sale.promoCents : normalCents, normalCents, endsAt }
 }
+
+/** True while an asset's weekday flash sale is running. */
+export function isOnSale(asset, now = Date.now()) {
+  return asset.priceType === 'premium' && Boolean(flashSale(asset.id, Math.round(asset.price * 100), now)?.active)
+}
+
+/**
+ * The next moment any flash sale starts or ends (ms): the coming Saturday 00:00
+ * while a sale runs, otherwise the coming Monday 00:00, Sydney time.
+ */
+export function nextSaleChange(now = Date.now()) {
+  if (!Object.keys(FLASH_SALES).length) return null
+  const clock = sydneyClock(new Date(now))
+  if (clock.weekday >= 1 && clock.weekday <= 5) {
+    const ahead = 6 - clock.weekday
+    const saturday = new Date(Date.UTC(clock.year, clock.month - 1, clock.day + ahead))
+    return sydneyMidnight(saturday.getUTCFullYear(), saturday.getUTCMonth() + 1, saturday.getUTCDate())
+  }
+  const ahead = clock.weekday === 6 ? 2 : 1
+  const monday = new Date(Date.UTC(clock.year, clock.month - 1, clock.day + ahead))
+  return sydneyMidnight(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate())
+}

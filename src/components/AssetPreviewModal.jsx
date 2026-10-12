@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, BookmarkCheck, CircleAlert, Download, Layers, LoaderCircle, ShoppingBag, X } from 'lucide-react'
 import { bundleForAsset } from '../lib/bundles'
 import { useCheckout } from '../lib/checkout'
@@ -6,6 +6,7 @@ import { downloadAsset } from '../lib/download'
 import { FLOWING_BORDER } from '../lib/flowingBorder'
 import { flashSale } from '../lib/pricing'
 import { useSavedAssets } from '../lib/savedAssets'
+import { useSaleEpoch } from '../lib/useFlashSale'
 import FlashSaleCountdown from './FlashSaleCountdown'
 
 /** Raw bytes -> "850 KB", "12.4 MB" or "1.20 GB"; null when the size is unknown. */
@@ -40,11 +41,15 @@ export default function AssetPreviewModal({ asset, onClose }) {
   const { saved, toggle } = useSavedAssets()
   const isSaved = saved.has(asset.id)
   const premium = asset.priceType === 'premium'
-  // Weekly flash sale (same rule /api/checkout charges by). Re-read when the
-  // countdown hits zero so the price flips back without a reload.
-  const readSale = useCallback(() => (premium ? flashSale(asset.id, Math.round(asset.price * 100)) : null), [premium, asset.id, asset.price])
-  const [sale, setSale] = useState(readSale)
-  const refreshSale = useCallback(() => setSale(readSale()), [readSale])
+  // Weekly flash sale (same rule /api/checkout charges by). Recomputed when a
+  // sale starts or ends (shared sale epoch) or when the countdown reaches zero.
+  const saleEpoch = useSaleEpoch()
+  const [endedAt, setEndedAt] = useState(0)
+  const refreshSale = useCallback(() => setEndedAt(Date.now()), [])
+  const sale = useMemo(
+    () => (premium ? flashSale(asset.id, Math.round(asset.price * 100), Date.now()) : null),
+    [premium, asset.id, asset.price, saleEpoch, endedAt],
+  )
   const priceCents = sale ? sale.priceCents : Math.round((asset.price ?? 0) * 100)
 
   // Escape to close, focus the close button, keep the page behind from scrolling,
@@ -211,23 +216,30 @@ export default function AssetPreviewModal({ asset, onClose }) {
                     <span className="text-lg font-bold text-neutral-950 dark:text-white">A${(sale.priceCents / 100).toFixed(2)} AUD</span>
                   </span>
                 </p>
-                <FlashSaleCountdown endsAt={sale.endsAt} onEnd={refreshSale} />
               </div>
             )}
             {premium ? (
-              <button
-                type="button"
-                onClick={checkout.start}
-                disabled={busy}
-                className={`${FLOWING_BORDER} flex w-full items-center justify-center gap-2 px-4 py-3 text-sm disabled:cursor-wait`}
-              >
-                {checkout.status === 'loading' ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
-                ) : (
-                  <ShoppingBag className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                )}
-                {checkout.status === 'loading' ? 'Opening checkout…' : `A$${(priceCents / 100).toFixed(2)} AUD · Buy now`}
-              </button>
+              // During a sale the live countdown sits to the left of Buy now.
+              <div className="flex flex-row items-center gap-4">
+                {sale?.active && <FlashSaleCountdown endsAt={sale.endsAt} onEnd={refreshSale} />}
+                <button
+                  type="button"
+                  onClick={checkout.start}
+                  disabled={busy}
+                  className={`${FLOWING_BORDER} flex flex-1 items-center justify-center gap-2 whitespace-nowrap px-4 py-3 text-sm disabled:cursor-wait`}
+                >
+                  {checkout.status === 'loading' ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
+                  ) : (
+                    <ShoppingBag className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  )}
+                  {checkout.status === 'loading'
+                    ? 'Opening checkout…'
+                    : sale?.active
+                      ? `Buy now · A$${(priceCents / 100).toFixed(2)}`
+                      : `A$${(priceCents / 100).toFixed(2)} AUD · Buy now`}
+                </button>
+              </div>
             ) : (
               asset.hasSource && (
                 <button

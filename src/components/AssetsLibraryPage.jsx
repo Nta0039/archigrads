@@ -199,11 +199,11 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   return (
     <>
       {/* Hero & search: full-bleed photo (public/background1.png). The text sits
-          in the sky; the hero is 16:9 to the width (the photo's ratio, clamped) and the photo is
-          pinned to the bottom, so any crop takes empty sky and the pavilion,
+          in the sky; sizing lives in .hero-photo (index.css): the photo sits as in a 16:9
+          bottom-pinned frame and the hero ends just above the pool, so the pavilion,
           terrace and mountains always sit below the search bar. Dark mode swaps in the
           night render of the same view (public/background1_night.jpg) with light text. */}
-      <section className="relative min-h-[clamp(720px,56.25vw,960px)] overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] bg-cover bg-bottom bg-no-repeat dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
+      <section className="hero-photo relative overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
         {/* Soft wash over the sky only (white by day, deep blue-black by night), so
             the text stays crisp without dimming the building. */}
         <div

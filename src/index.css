@@ -123,3 +123,16 @@ body {
     background-position: -200% 0;
   }
 }
+
+/* Homepage hero photo (AssetsLibraryPage). The photo keeps the size and position
+   it has in a 16:9 frame pinned to the bottom (--frame, clamped), but the hero
+   itself stops 11% of the photo's height short of the bottom, just above the
+   pool, so the filter bar starts where the water reflection would begin. */
+.hero-photo {
+  --frame: clamp(720px, 56.25vw, 960px);
+  --photo-h: max(var(--frame), 56.28vw); /* "cover" height for the 1.777:1 photos */
+  min-height: calc(var(--frame) - 0.11 * var(--photo-h));
+  background-size: auto var(--photo-h);
+  background-position: center calc(var(--frame) - var(--photo-h));
+  background-repeat: no-repeat;
+}

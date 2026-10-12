@@ -220,10 +220,10 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
         />
         <div className="relative mx-auto max-w-7xl px-6 pb-12 pt-10 text-center sm:pt-12 lg:px-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-700 dark:text-neutral-300">
-            Vector Assets Library
+            Spend Less. Choose More. Design Better.
           </p>
           <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-6xl dark:text-white">
-            Premium Architectural Assets
+            ArchiGrads Library
           </h1>
           <p className="mx-auto mt-5 max-w-xl font-medium leading-relaxed text-neutral-800 dark:text-neutral-200">
             Free 2D cutouts, CAD blocks and Revit families, plus community assets made in AI Studio.

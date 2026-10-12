@@ -637,6 +637,9 @@ function PriceTag({ asset, sale, bundle }) {
   )
 }
 
+// Shared look for promotion badges on cards (flash sale, bundle discount).
+const PROMO_BADGE = 'whitespace-nowrap bg-red-600 px-2 py-1 text-xs font-bold uppercase leading-none tracking-[0.1em] text-white'
+
 function FormatBadge({ format }) {
   return (
     <span className="border border-neutral-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -700,18 +703,11 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
           </div>
         )}
 
-        {bundle && (
-          <span className="pointer-events-none absolute left-0 top-0 z-10 whitespace-nowrap bg-neutral-950 px-2.5 py-1.5 text-[10px] font-bold uppercase leading-none tracking-[0.12em] text-white sm:text-xs dark:bg-white dark:text-neutral-950">
-            Package Discount
-          </span>
-        )}
-
-        {saleActive && (
-          // Right-angled triangle badge in the top-left corner (clip-path, no rounding).
-          <span aria-hidden className="pointer-events-none absolute left-0 top-0 z-10 h-16 w-16 bg-red-600 [clip-path:polygon(0_0,100%_0,0_100%)]">
-            <span className="absolute left-[3px] top-[17px] w-[38px] -rotate-45 text-center text-[10px] font-black uppercase leading-none tracking-[0.12em] text-white">
-              Sale
-            </span>
+        {(saleActive || bundle) && (
+          // Promotion badges: one shared style, sharp red rectangles, top-left.
+          <span className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
+            {saleActive && <span className={PROMO_BADGE}>Sale</span>}
+            {bundle && <span className={PROMO_BADGE}>Package Discount</span>}
           </span>
         )}
 

@@ -12,6 +12,8 @@
  *
  * Plain JS with no browser-only imports, so the Vercel API functions share it.
  */
+import { BUNDLES } from './bundles.js'
+
 export const THUMBNAIL_BUCKET = 'thumbnails'
 export const SOURCE_BUCKET = 'source-files'
 
@@ -68,7 +70,26 @@ export async function fetchCatalogue(client) {
   const categories = categoriesResult.data.map(toCategory)
   const byName = new Map(categories.map((category) => [category.name, category]))
   const assets = assetsResult.data.map((row) => toAsset(row, byName.get(row.category), client))
-  return { categories, assets }
+  return { categories, assets: withGalleries(assets) }
+}
+
+/**
+ * Adds images[] to every asset for the preview gallery: its own thumbnail, or
+ * for a bundle's card the thumbnails of every model in the bundle.
+ */
+function withGalleries(assets) {
+  const byId = new Map(assets.map((asset) => [asset.id, asset]))
+  return assets.map((asset) => {
+    const bundle = Object.values(BUNDLES).find((item) => item.listingSlug === asset.id)
+    const gallery = bundle
+      ? bundle.assetIds
+          .map((id) => byId.get(id))
+          .filter((member) => member?.imageUrl)
+          .map((member) => ({ src: member.imageUrl, caption: member.title }))
+      : []
+    const own = asset.imageUrl ? [{ src: asset.imageUrl, caption: asset.title }] : []
+    return { ...asset, images: gallery.length ? gallery : own }
+  })
 }
 
 /** One published asset by slug (with its category's price), or null. */

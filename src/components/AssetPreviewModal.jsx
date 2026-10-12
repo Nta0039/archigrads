@@ -8,6 +8,7 @@ import { flashSale } from '../lib/pricing'
 import { useSavedAssets } from '../lib/savedAssets'
 import { useSaleEpoch } from '../lib/useFlashSale'
 import FlashSaleCountdown from './FlashSaleCountdown'
+import ModalGallery from './ModalGallery'
 
 /** Raw bytes -> "850 KB", "12.4 MB" or "1.20 GB"; null when the size is unknown. */
 const formatBytes = (bytes) => {
@@ -131,21 +132,15 @@ export default function AssetPreviewModal({ asset, onClose }) {
         aria-labelledby="asset-preview-title"
         className="flex max-h-[85vh] w-[90vw] max-w-5xl flex-col overflow-hidden border-2 border-neutral-200 bg-white shadow-2xl md:flex-row dark:border-neutral-800 dark:bg-neutral-950"
       >
-        {/* Image: two thirds, contained (never cropped) on a drafting grid. */}
+        {/* Image(s): two thirds, contained (never cropped) on a drafting grid; a bundle shows a gallery. */}
         <div
           className="relative flex h-[36vh] shrink-0 items-center justify-center bg-neutral-100 p-4 md:h-auto md:min-h-[60vh] md:w-2/3 dark:bg-neutral-900/50"
           style={DRAFTING_GRID}
         >
-          {asset.imageUrl ? (
-            <img
-              src={asset.imageUrl}
-              alt={asset.title}
-              draggable={false}
-              className="max-h-full max-w-full object-contain md:max-h-[calc(85vh-2rem)]"
-            />
-          ) : (
-            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500">No preview</span>
-          )}
+          <ModalGallery
+            images={asset.images ?? (asset.imageUrl ? [{ src: asset.imageUrl, caption: asset.title }] : [])}
+            title={asset.title}
+          />
         </div>
 
         {/* Details: one third, scrolls on its own if the text runs long. */}

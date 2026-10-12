@@ -6,6 +6,7 @@ import AssetsLibraryPage from './components/AssetsLibraryPage'
 import AdminDashboard from './components/AdminDashboard'
 import SuccessPage from './components/SuccessPage'
 import AIGeneratorPage from './components/AIGeneratorPage'
+import CookieBanner from './components/CookieBanner'
 
 /**
  * useState that survives a reload of this tab. Used for the mocked login so the
@@ -128,6 +129,9 @@ export default function App() {
       {authMode && (
         <AuthModal mode={authMode} onModeChange={setAuthMode} onClose={closeAuth} onLogin={handleLogin} />
       )}
+
+      {/* On every page until the visitor accepts or declines. */}
+      <CookieBanner />
     </div>
   )
 }

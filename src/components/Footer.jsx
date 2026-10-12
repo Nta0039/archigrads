@@ -24,8 +24,9 @@ export default function Footer({ onNavigate }) {
     </a>
   )
 
+  // Same surface as the site header (bg + blur + border), so header and footer bookend the page.
   return (
-    <footer className="border-t border-neutral-300 dark:border-neutral-800">
+    <footer className="border-t border-neutral-200 bg-white/85 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/85">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-10 md:flex-row md:items-center md:justify-between lg:px-8">
         <nav aria-label="Footer" className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
           <a href={CONTACT_URL} target="_blank" rel="noopener noreferrer" className={`${LINK} inline-flex items-center gap-1.5`}>

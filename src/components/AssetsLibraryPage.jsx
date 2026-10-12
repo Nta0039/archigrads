@@ -24,6 +24,7 @@ import { FLOWING_BORDER } from '../lib/flowingBorder'
 import { downloadAsset } from '../lib/download'
 import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
+import { flashSale } from '../lib/pricing'
 import { useSavedAssets } from '../lib/savedAssets'
 import AssetPreviewModal from './AssetPreviewModal'
 
@@ -594,7 +595,23 @@ function CatalogueError({ error, onRetry }) {
  * opens the preview modal (the click bubbles to the card); checkout itself is
  * only started from the modal's "Buy now".
  */
+/**
+ * Re-renders a flash-sale price chip every 30 s, so a page left open across
+ * Saturday or Monday midnight (Sydney) switches price. Other chips never tick.
+ */
+function useSaleClock(asset) {
+  const hasSale = asset.priceType === 'premium' && flashSale(asset.id, Math.round(asset.price * 100)) !== null
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!hasSale) return undefined
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [hasSale])
+  return now
+}
+
 function PriceTag({ asset }) {
+  const now = useSaleClock(asset)
   if (asset.priceType === 'free') {
     return (
       <span className="shrink-0 border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -603,19 +620,23 @@ function PriceTag({ asset }) {
     )
   }
 
+  // Weekday flash sale: the chip shows the sale price with the normal one struck through.
+  const sale = flashSale(asset.id, Math.round(asset.price * 100), now)
+  const price = sale ? sale.priceCents / 100 : asset.price
   return (
     <button
       type="button"
-      aria-label={`View ${asset.title}: ${formatAud(asset.price)} (${asset.allowance})`}
+      aria-label={`View ${asset.title}: ${formatAud(price)}${sale?.active ? ` (flash sale, normally ${formatAud(asset.price)})` : ''} (${asset.allowance})`}
       title="View details and buy"
       className="shrink-0 bg-neutral-900 px-2.5 py-1.5 text-right text-white shadow-sm transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-wait disabled:opacity-80 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300 dark:focus-visible:outline-neutral-100"
     >
       <span className="flex items-center justify-end gap-1 text-sm font-semibold leading-none tabular-nums">
         <ShoppingBag className="h-3 w-3 opacity-70" strokeWidth={2} aria-hidden />
-        {formatAud(asset.price)}
+        {sale?.active && <del className="text-[11px] font-medium opacity-60">{formatAud(asset.price)}</del>}
+        {formatAud(price)}
       </span>
       <span className="mt-1 block text-[9px] font-medium uppercase leading-none tracking-[0.12em] opacity-70">
-        {asset.allowance}
+        {sale?.active ? 'Flash sale' : asset.allowance}
       </span>
     </button>
   )

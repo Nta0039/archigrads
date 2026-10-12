@@ -1,5 +1,6 @@
 import { BUNDLES } from '../src/lib/bundles.js'
 import { fetchAsset } from '../src/lib/catalogue.js'
+import { flashSale } from '../src/lib/pricing.js'
 import { HttpError, getStripe, sendError, siteOrigin } from './_stripe.js'
 import { getSupabaseAdmin } from './_supabase.js'
 
@@ -28,11 +29,17 @@ async function readPurchase(body) {
   const asset = await fetchAsset(supabase, assetId)
   if (!asset) throw new HttpError(404, 'Unknown asset.')
   if (!asset.price) throw new HttpError(400, 'This asset is free; no checkout needed.')
+  // Weekly flash sale (src/lib/pricing.js), decided by the server's clock at
+  // the moment the session is created.
+  const normalCents = Math.round(asset.price * 100)
+  const sale = flashSale(asset.id, normalCents)
   return {
     item: {
       name: asset.title,
-      description: asset.allowance ? `${asset.type} · ${asset.allowance}` : asset.type,
-      amountCents: Math.round(asset.price * 100),
+      description: [asset.allowance ? `${asset.type} · ${asset.allowance}` : asset.type, sale?.active && 'Weekday flash sale']
+        .filter(Boolean)
+        .join(' · '),
+      amountCents: sale ? sale.priceCents : normalCents,
     },
     metadata: { assetId: asset.id },
   }

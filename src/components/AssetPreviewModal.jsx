@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bookmark, BookmarkCheck, CircleAlert, Download, Layers, LoaderCircle, ShoppingBag, X } from 'lucide-react'
 import { bundleForAsset } from '../lib/bundles'
 import { useCheckout } from '../lib/checkout'
 import { downloadAsset } from '../lib/download'
 import { FLOWING_BORDER } from '../lib/flowingBorder'
+import { flashSale } from '../lib/pricing'
 import { useSavedAssets } from '../lib/savedAssets'
+import FlashSaleCountdown from './FlashSaleCountdown'
 
 /** Raw bytes -> "850 KB", "12.4 MB" or "1.20 GB"; null when the size is unknown. */
 const formatBytes = (bytes) => {
@@ -38,6 +40,12 @@ export default function AssetPreviewModal({ asset, onClose }) {
   const { saved, toggle } = useSavedAssets()
   const isSaved = saved.has(asset.id)
   const premium = asset.priceType === 'premium'
+  // Weekly flash sale (same rule /api/checkout charges by). Re-read when the
+  // countdown hits zero so the price flips back without a reload.
+  const readSale = useCallback(() => (premium ? flashSale(asset.id, Math.round(asset.price * 100)) : null), [premium, asset.id, asset.price])
+  const [sale, setSale] = useState(readSale)
+  const refreshSale = useCallback(() => setSale(readSale()), [readSale])
+  const priceCents = sale ? sale.priceCents : Math.round((asset.price ?? 0) * 100)
 
   // Escape to close, focus the close button, keep the page behind from scrolling,
   // and hand focus back to whatever opened the modal.
@@ -192,6 +200,20 @@ export default function AssetPreviewModal({ asset, onClose }) {
                 </button>
               </div>
             )}
+            {sale?.active && (
+              <div className="mb-3 border border-red-600 dark:border-red-400">
+                <p className="px-3 py-2.5">
+                  <span className="block text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-900 dark:text-neutral-100">
+                    Weekday price
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-baseline gap-x-2 whitespace-nowrap tabular-nums">
+                    <del className="text-sm text-neutral-400 dark:text-neutral-500">A${(sale.normalCents / 100).toFixed(2)} AUD</del>
+                    <span className="text-lg font-bold text-neutral-950 dark:text-white">A${(sale.priceCents / 100).toFixed(2)} AUD</span>
+                  </span>
+                </p>
+                <FlashSaleCountdown endsAt={sale.endsAt} onEnd={refreshSale} />
+              </div>
+            )}
             {premium ? (
               <button
                 type="button"
@@ -204,7 +226,7 @@ export default function AssetPreviewModal({ asset, onClose }) {
                 ) : (
                   <ShoppingBag className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 )}
-                {checkout.status === 'loading' ? 'Opening checkout…' : `A$${asset.price.toFixed(2)} AUD · Buy now`}
+                {checkout.status === 'loading' ? 'Opening checkout…' : `A$${(priceCents / 100).toFixed(2)} AUD · Buy now`}
               </button>
             ) : (
               asset.hasSource && (

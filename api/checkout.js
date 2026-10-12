@@ -1,4 +1,4 @@
-import { BUNDLES } from '../src/lib/bundles.js'
+import { BUNDLES, bundleForListing } from '../src/lib/bundles.js'
 import { fetchAsset } from '../src/lib/catalogue.js'
 import { flashSale } from '../src/lib/pricing.js'
 import { HttpError, getStripe, sendError, siteOrigin } from './_stripe.js'
@@ -7,9 +7,11 @@ import { getSupabaseAdmin } from './_supabase.js'
 /** What is being bought: { item: { name, description, amountCents }, metadata }. */
 async function readPurchase(body) {
   const supabase = getSupabaseAdmin()
+  // A bundle's library card (e.g. "Old People's Home [Bundle]") is bought as that bundle.
+  const listing = typeof body?.assetId === 'string' ? bundleForListing(body.assetId) : null
 
-  if (body?.bundleId !== undefined) {
-    const bundle = typeof body.bundleId === 'string' ? BUNDLES[body.bundleId] : null
+  if (body?.bundleId !== undefined || listing) {
+    const bundle = listing ?? (typeof body.bundleId === 'string' ? BUNDLES[body.bundleId] : null)
     if (!bundle) throw new HttpError(404, 'Unknown bundle.')
     // Every file in the bundle must still be listed and downloadable.
     const assets = await Promise.all(bundle.assetIds.map((id) => fetchAsset(supabase, id)))

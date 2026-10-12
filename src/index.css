@@ -140,3 +140,21 @@ body {
   background-position: center bottom calc(-0.11 * var(--photo-h));
   background-repeat: no-repeat;
 }
+
+/* Bundle cards: two hard-edged sheets offset behind the card, like a stack of
+   drawings. Each sheet is a filled offset shadow (spread -1px) over a 1px
+   outline shadow, so the layers read as outlined paper, not a blur. */
+.bundle-stack {
+  --sheet: #ffffff;
+  --sheet-edge: #0a0a0a;
+  box-shadow:
+    5px 5px 0 -1px var(--sheet),
+    5px 5px 0 0 var(--sheet-edge),
+    10px 10px 0 -1px var(--sheet),
+    10px 10px 0 0 var(--sheet-edge);
+}
+
+.dark .bundle-stack {
+  --sheet: #171717;
+  --sheet-edge: #a3a3a3;
+}

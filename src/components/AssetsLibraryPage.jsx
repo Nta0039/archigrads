@@ -24,6 +24,7 @@ import { FLOWING_BORDER } from '../lib/flowingBorder'
 import { downloadAsset } from '../lib/download'
 import { setLocallyHidden, useCatalogue } from '../lib/useCatalogue'
 import { setAssetHidden } from '../lib/adminHide'
+import { bundleForListing } from '../lib/bundles'
 import { flashSale, isOnSale } from '../lib/pricing'
 import { useSaleEpoch } from '../lib/useFlashSale'
 import FlashSaleCountdown from './FlashSaleCountdown'
@@ -179,8 +180,9 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   const formats = useMemo(() => collectFormats(catalogue.assets), [catalogue.assets])
   const activeCategory = categoryOptions.find((option) => option.label === category) ?? categoryOptions[0]
 
-  // Assets on a flash sale are pinned to the top (A-Z); everything else keeps
-  // its catalogue order. saleEpoch changes only when a sale starts or ends.
+  // Display order: assets on a flash sale (A-Z), then bundles (A-Z), then
+  // everything else in catalogue order. saleEpoch changes only when a sale
+  // starts or ends.
   const saleEpoch = useSaleEpoch()
   const visibleAssets = useMemo(() => {
     const matching = catalogue.assets.filter(
@@ -191,8 +193,11 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
         matchesQuery(asset, query.trim()),
     )
     const now = Date.now()
-    const onSale = matching.filter((asset) => isOnSale(asset, now)).sort((a, b) => a.title.localeCompare(b.title))
-    return onSale.length ? [...onSale, ...matching.filter((asset) => !onSale.includes(asset))] : matching
+    const byTitle = (a, b) => a.title.localeCompare(b.title)
+    const onSale = matching.filter((asset) => isOnSale(asset, now)).sort(byTitle)
+    const bundles = matching.filter((asset) => !onSale.includes(asset) && bundleForListing(asset.id)).sort(byTitle)
+    const pinned = [...onSale, ...bundles]
+    return pinned.length ? [...pinned, ...matching.filter((asset) => !pinned.includes(asset))] : matching
     // saleEpoch is a recompute trigger, not read directly.
   }, [catalogue.assets, query, priceType, activeCategory, format, saleEpoch])
 
@@ -602,7 +607,7 @@ function CatalogueError({ error, onRetry }) {
  * opens the preview modal (the click bubbles to the card); checkout itself is
  * only started from the modal's "Buy now".
  */
-function PriceTag({ asset, sale }) {
+function PriceTag({ asset, sale, bundle }) {
   if (asset.priceType === 'free') {
     return (
       <span className="shrink-0 border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.15em] text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -626,7 +631,7 @@ function PriceTag({ asset, sale }) {
         {formatAud(price)}
       </span>
       <span className="mt-1 block text-[9px] font-medium uppercase leading-none tracking-[0.12em] opacity-70">
-        {sale?.active ? 'Flash sale' : asset.allowance}
+        {sale?.active ? 'Flash sale' : bundle ? `${bundle.assetIds.length} files` : asset.allowance}
       </span>
     </button>
   )
@@ -654,6 +659,7 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
     [asset, saleEpoch], // saleEpoch: recompute when a sale starts or ends
   )
   const saleActive = Boolean(sale?.active)
+  const bundle = bundleForListing(asset.id)
 
   // A click anywhere on the card opens the preview, except on controls that
   // act directly (free Download, admin Hide), which carry data-card-action.
@@ -665,7 +671,11 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
   return (
     <figure
       onClick={openPreview}
-      className="group cursor-pointer overflow-hidden border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
+      className={`group cursor-pointer overflow-hidden border bg-white transition-colors dark:bg-neutral-900 ${
+        bundle
+          ? 'bundle-stack mb-2.5 mr-2.5 border-neutral-950 dark:border-neutral-400'
+          : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600'
+      }`}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
         {showImage ? (
@@ -688,6 +698,12 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
           <div className="flex h-full w-full items-center justify-center text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
             Asset Preview
           </div>
+        )}
+
+        {bundle && (
+          <span className="pointer-events-none absolute left-0 top-0 z-10 whitespace-nowrap bg-neutral-950 px-2.5 py-1.5 text-[10px] font-bold uppercase leading-none tracking-[0.12em] text-white sm:text-xs dark:bg-white dark:text-neutral-950">
+            Package Discount
+          </span>
         )}
 
         {saleActive && (
@@ -738,7 +754,7 @@ const AssetCard = memo(function AssetCard({ asset, isAdmin, onHide, onPreview })
           </div>
           <div className="flex min-w-0 flex-wrap items-end justify-end gap-x-3 gap-y-1.5">
             {saleActive && <FlashSaleCountdown variant="card" endsAt={sale.endsAt} />}
-            <PriceTag asset={asset} sale={sale} />
+            <PriceTag asset={asset} sale={sale} bundle={bundle} />
           </div>
         </div>
       </figcaption>

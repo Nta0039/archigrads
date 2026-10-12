@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, BookmarkCheck, CircleAlert, Download, Layers, LoaderCircle, ShoppingBag, X } from 'lucide-react'
-import { bundleForAsset } from '../lib/bundles'
+import { bundleForAsset, bundleForListing } from '../lib/bundles'
 import { useCheckout } from '../lib/checkout'
 import { downloadAsset } from '../lib/download'
 import { FLOWING_BORDER } from '../lib/flowingBorder'
@@ -33,7 +33,9 @@ export default function AssetPreviewModal({ asset, onClose }) {
   const closeRef = useRef(null)
   const [meta, setMeta] = useState({ status: 'loading' })
   const [download, setDownload] = useState({ status: 'idle', message: '' })
-  const checkout = useCheckout({ assetId: asset.id })
+  // A bundle's own card is bought as the bundle (all of its files).
+  const listing = bundleForListing(asset.id)
+  const checkout = useCheckout(listing ? { bundleId: listing.id } : { assetId: asset.id })
   const bundle = asset.priceType === 'premium' ? bundleForAsset(asset.id) : null
   const bundleCheckout = useCheckout({ bundleId: bundle?.id })
   const busy = checkout.status === 'loading' || bundleCheckout.status === 'loading'
@@ -73,7 +75,7 @@ export default function AssetPreviewModal({ asset, onClose }) {
   // The real size of the downloadable file (all parts added up) comes from
   // /api/asset-meta: it is not a database column, and the bucket is private.
   useEffect(() => {
-    if (!asset.hasSource) return setMeta({ status: 'none' })
+    if (!asset.hasSource && !listing) return setMeta({ status: 'none' })
     let cancelled = false
     fetch(`/api/asset-meta?asset=${encodeURIComponent(asset.id)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
@@ -82,7 +84,7 @@ export default function AssetPreviewModal({ asset, onClose }) {
     return () => {
       cancelled = true
     }
-  }, [asset.id, asset.hasSource])
+  }, [asset.id, asset.hasSource, listing])
 
   const startDownload = async () => {
     setDownload({ status: 'loading', message: '' })
@@ -113,7 +115,8 @@ export default function AssetPreviewModal({ asset, onClose }) {
     ['Category', asset.type],
     ['Format', formats],
     ['Size', size],
-  ]
+    listing && ['Contents', `${listing.assetIds.length} separate ${listing.format} files`],
+  ].filter(Boolean)
 
   return (
     <div

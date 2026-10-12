@@ -1,3 +1,4 @@
+import { bundleForListing } from '../src/lib/bundles.js'
 import { SOURCE_BUCKET, fetchAsset } from '../src/lib/catalogue.js'
 import { HttpError, sendError } from './_stripe.js'
 import { getSupabaseAdmin } from './_supabase.js'
@@ -22,9 +23,14 @@ export default async function handler(req, res) {
     const asset = await fetchAsset(supabase, slug)
     if (!asset) throw new HttpError(404, 'Unknown asset.')
 
-    // Several paths means one file stored in parts; the sizes add up.
+    // A bundle card has no file of its own: report all of its files together.
+    const bundle = bundleForListing(slug)
+    const members = bundle ? await Promise.all(bundle.assetIds.map((id) => fetchAsset(supabase, id))) : [asset]
+    const paths = members.filter(Boolean).flatMap((member) => member.sourcePaths)
+
+    // Several paths: one file stored in parts, or a bundle's files; the sizes add up.
     const sizes = await Promise.all(
-      asset.sourcePaths.map(async (path) => {
+      paths.map(async (path) => {
         const slash = path.lastIndexOf('/')
         const folder = slash === -1 ? '' : path.slice(0, slash)
         const name = path.slice(slash + 1)
@@ -37,8 +43,8 @@ export default async function handler(req, res) {
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600')
     res.status(200).json({
-      filename: asset.sourceFilename,
-      parts: asset.sourcePaths.length,
+      filename: bundle ? `${bundle.assetIds.length} files` : asset.sourceFilename,
+      parts: paths.length,
       bytes: known.length === sizes.length && known.length ? known.reduce((sum, size) => sum + size, 0) : null,
     })
   } catch (error) {

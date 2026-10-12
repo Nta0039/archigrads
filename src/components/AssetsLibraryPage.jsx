@@ -199,15 +199,16 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
   return (
     <>
       {/* Hero & search: full-bleed photo (public/background1.png). The text sits
-          in the bright sky; the height follows the width (clamped) so the pavilion,
+          in the sky; the hero is 16:9 to the width (the photo's ratio, clamped) and the photo is
+          pinned to the bottom, so any crop takes empty sky and the pavilion,
           terrace and mountains always sit below the search bar. Dark mode swaps in the
           night render of the same view (public/background1_night.jpg) with light text. */}
-      <section className="relative min-h-[clamp(660px,50vw,800px)] overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] bg-cover bg-center bg-no-repeat dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
+      <section className="relative min-h-[clamp(720px,56.25vw,960px)] overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] bg-cover bg-bottom bg-no-repeat dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
         {/* Soft wash over the sky only (white by day, deep blue-black by night), so
             the text stays crisp without dimming the building. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-3/5 bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-neutral-950/55 dark:via-neutral-950/20"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-neutral-950/55 dark:via-neutral-950/20"
         />
         <div className="relative mx-auto max-w-7xl px-6 pb-12 pt-10 text-center sm:pt-12 lg:px-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-700 dark:text-neutral-300">

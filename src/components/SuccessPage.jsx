@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowUpRight, CircleAlert, CircleCheck, Download, LoaderCircle } from 'lucide-react'
 import { formatAud } from '../lib/catalogue'
 import { downloadAsset } from '../lib/download'
@@ -15,7 +15,8 @@ import { FEEDBACK_FORM_URL } from '../lib/feedback'
 export default function SuccessPage({ onBack }) {
   const [state, setState] = useState({ status: 'loading' })
   const [showFeedback, setShowFeedback] = useState(false)
-  const [download, setDownload] = useState({ status: 'idle', message: '' })
+  const [download, setDownload] = useState({ status: 'idle', message: '' }) // idle | loading | done | error
+  const autoStarted = useRef(false) // survives Strict Mode's double effect run
   const closeFeedback = useCallback(() => setShowFeedback(false), [])
 
   useEffect(() => {
@@ -80,19 +81,31 @@ export default function SuccessPage({ onBack }) {
   }, [paidSessionId])
 
   // A bundle unlocks several assets; they download one after another.
-  const startDownload = async () => {
-    const ids = state.session.assetIds?.length ? state.session.assetIds : [state.session.assetId]
+  // downloadAsset fetches each signed Supabase URL as a blob and saves it via a
+  // same-origin blob link, which forces a real download (the download attribute
+  // is ignored on cross-origin links).
+  const startDownload = useCallback(async (session) => {
+    const ids = session.assetIds?.length ? session.assetIds : [session.assetId]
     try {
       for (const [index, id] of ids.entries()) {
         setDownload({ status: 'loading', message: '', progress: ids.length > 1 ? `${index + 1} of ${ids.length}` : '' })
-        await downloadAsset(id, state.session.id)
+        await downloadAsset(id, session.id)
       }
-      setDownload({ status: 'idle', message: '' })
+      setDownload({ status: 'done', message: '' })
     } catch (error) {
       console.error('[download] Could not download the purchase:', error)
       setDownload({ status: 'error', message: error.message })
     }
-  }
+  }, [])
+
+  // Start the download by itself once the payment is confirmed, exactly once
+  // per page load, so closing the tab early cannot lose the purchase.
+  const paidSession = state.status === 'paid' ? state.session : null
+  useEffect(() => {
+    if (!paidSession?.hasSource || autoStarted.current) return
+    autoStarted.current = true
+    startDownload(paidSession)
+  }, [paidSession, startDownload])
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-6 py-20">
@@ -138,39 +151,48 @@ export default function SuccessPage({ onBack }) {
             </dl>
 
             {state.session.hasSource && (
-              <button
-                type="button"
-                onClick={startDownload}
-                disabled={download.status === 'loading'}
-                className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-neutral-900 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:px-8 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-              >
-                {download.status === 'loading' ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
-                ) : (
-                  <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                )}
-                {download.status === 'loading'
-                  ? `Preparing your files${download.progress ? ` (${download.progress})` : ''}…`
-                  : 'Download Your Files'}
-              </button>
+              // Auto-download status plus a manual button, for browsers that block
+              // downloads that start without a click.
+              <div className="mx-auto mt-8 max-w-sm text-left">
+                <p
+                  role={download.status === 'error' ? 'alert' : 'status'}
+                  className="flex items-start gap-2 border-2 border-b-0 border-neutral-950 px-4 py-2.5 text-xs leading-snug text-neutral-600 dark:border-white dark:text-neutral-300"
+                >
+                  {download.status === 'loading' ? (
+                    <LoaderCircle className="mt-px h-3.5 w-3.5 shrink-0 animate-spin" strokeWidth={2} aria-hidden />
+                  ) : download.status === 'error' ? (
+                    <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                  ) : (
+                    <Download className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                  )}
+                  <span>
+                    {download.status === 'loading'
+                      ? `Your download is starting${download.progress ? ` (file ${download.progress})` : ''}…`
+                      : download.status === 'done'
+                        ? "Download started. Check your browser's downloads; if nothing arrived, use the button below."
+                        : download.status === 'error'
+                          ? `${download.message} Use the button below.`
+                          : 'Your download will start automatically.'}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => startDownload(state.session)}
+                  disabled={download.status === 'loading'}
+                  className="flex w-full items-center justify-center gap-2 border-2 border-neutral-950 bg-neutral-950 px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-neutral-800 disabled:cursor-wait disabled:opacity-80 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+                >
+                  <Download className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  Download Asset Now
+                </button>
+              </div>
             )}
-            {download.status === 'error' && (
-              <p role="alert" className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
-                {download.message}
-              </p>
-            )}
-            <p className="mt-3 text-[11px] text-neutral-400 dark:text-neutral-500">
-              {state.session.livemode
-                ? 'Paid securely with Stripe. Your card statement will show this purchase.'
-                : 'Stripe test mode: no real money was charged.'}
-            </p>
 
             {/* Always available here, even after the feedback pop-up is dismissed. */}
             <a
               href={FEEDBACK_FORM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group mx-auto mt-10 flex max-w-sm items-center justify-between gap-4 border border-neutral-300 px-4 py-3 text-left text-sm transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
+              className="group mx-auto mt-3 flex max-w-sm items-center justify-between gap-4 border border-neutral-300 px-4 py-3 text-left text-sm transition-colors hover:border-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-100"
             >
               <span>
                 <span className="block text-[10px] font-medium uppercase tracking-[0.25em] text-neutral-400 dark:text-neutral-500">
@@ -184,6 +206,12 @@ export default function SuccessPage({ onBack }) {
                 aria-hidden
               />
             </a>
+
+            <p className="mt-6 text-[11px] text-neutral-400 dark:text-neutral-500">
+              {state.session.livemode
+                ? 'Paid securely with Stripe. Your card statement will show this purchase.'
+                : 'Stripe test mode: no real money was charged.'}
+            </p>
           </div>
         )}
 

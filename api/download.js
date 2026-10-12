@@ -49,9 +49,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // Content-Disposition: attachment, so even a plain link to the file downloads
+    // it rather than opening it (images and SVGs would otherwise display).
+    const filename = asset.sourceFilename || asset.sourcePaths[0].split('/').pop()
     const { data, error } = await supabase.storage
       .from(SOURCE_BUCKET)
-      .createSignedUrls(asset.sourcePaths, LINK_LIFETIME_SECONDS)
+      .createSignedUrls(asset.sourcePaths, LINK_LIFETIME_SECONDS, {
+        download: asset.sourcePaths.length === 1 ? filename : true,
+      })
     if (error || !data || data.some((item) => item.error || !item.signedUrl)) {
       console.error('Signed URL error', error ?? data)
       throw new HttpError(502, 'Could not prepare the download. Please try again.')
@@ -59,7 +64,7 @@ export default async function handler(req, res) {
 
     res.setHeader('Cache-Control', 'no-store')
     res.status(200).json({
-      filename: asset.sourceFilename || asset.sourcePaths[0].split('/').pop(),
+      filename,
       urls: data.map((item) => item.signedUrl),
       expiresIn: LINK_LIFETIME_SECONDS,
     })

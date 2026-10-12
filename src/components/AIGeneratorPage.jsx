@@ -252,8 +252,8 @@ async function callApi(url, options) {
   return data
 }
 
-export default function AIGeneratorPage({ onBack }) {
-  const [prompt, setPrompt] = useState('')
+export default function AIGeneratorPage({ onBack, initialPrompt = '' }) {
+  const [prompt, setPrompt] = useState(initialPrompt.slice(0, 300))
   const [format, setFormat] = useState(FORMATS[0])
   const [engineLabel, setEngineLabel] = useState(ENGINES[0].label)
   const [angle, setAngle] = useState('Top View')

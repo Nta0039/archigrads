@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   ShoppingBag,
+  Wand2,
   X,
 } from 'lucide-react'
 import { formatAud } from '../lib/catalogue'
@@ -130,7 +131,7 @@ function matchesQuery(asset, query) {
 }
 
 /** The asset library: hero search, category / format filters and the grid. */
-export default function AssetsLibraryPage({ isAdmin = false }) {
+export default function AssetsLibraryPage({ isAdmin = false, onOpenStudio }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
   const [format, setFormat] = useState(null)
@@ -351,7 +352,11 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
           ))}
         </div>
 
-        {visibleAssets.length === 0 && (
+        {visibleAssets.length === 0 && query.trim() !== '' && (
+          <SearchEmptyState query={query.trim()} onOpenStudio={onOpenStudio} onClear={clearFilters} />
+        )}
+
+        {visibleAssets.length === 0 && query.trim() === '' && (
           <div className="mt-16 text-center">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">No assets match these filters.</p>
             <button
@@ -370,6 +375,46 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
       {notice && <AdminNotice notice={notice} onUndo={handleUndoHide} onDismiss={dismissNotice} />}
       {selectedAsset && <AssetPreviewModal key={selectedAsset.id} asset={selectedAsset} onClose={closePreview} />}
     </>
+  )
+}
+
+/**
+ * Zero results for a search: point the visitor to AI Studio, with what they
+ * searched for carried over as the prompt.
+ */
+function SearchEmptyState({ query, onOpenStudio, onClear }) {
+  return (
+    <div className="mt-10 flex w-full flex-col items-center justify-center border border-dashed border-neutral-400 bg-white/70 px-4 py-20 text-center dark:border-neutral-700 dark:bg-neutral-950/60">
+      <Sparkles className="mb-6 h-6 w-6 text-neutral-400 dark:text-neutral-500" strokeWidth={1.5} aria-hidden />
+      <p className="mb-2 max-w-2xl break-words text-xl font-bold text-neutral-900 dark:text-neutral-100">
+        No exact matches found for &lsquo;{query}&rsquo;.
+      </p>
+      <p className="mb-6 max-w-md text-center text-neutral-500 dark:text-neutral-400">
+        Can&apos;t find what you need? Generate custom PNG cutouts or textures instantly with our AI Studio.
+      </p>
+      <a
+        href="/studio"
+        onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0 || !onOpenStudio) return
+          event.preventDefault()
+          onOpenStudio(query)
+        }}
+        className="inline-flex items-center gap-2 bg-neutral-950 px-6 py-3 text-sm font-bold uppercase tracking-widest text-white transition-transform hover:scale-105 dark:bg-white dark:text-neutral-950"
+      >
+        <Wand2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+        Open AI Studio
+      </a>
+      <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
+        Your search is used as the prompt
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="mt-8 text-xs font-medium uppercase tracking-[0.15em] text-neutral-500 underline-offset-4 transition-colors hover:text-neutral-900 hover:underline dark:text-neutral-400 dark:hover:text-neutral-100"
+      >
+        Clear search and filters
+      </button>
+    </div>
   )
 }
 

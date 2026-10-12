@@ -59,6 +59,7 @@ export default function App() {
   const [userName, setUserName] = useSessionState('archigrads-demo-name', '')
   const [isPresentationMode, setIsPresentationMode] = useSessionState('archigrads-demo-presentation', false)
   const [page, setPage] = useState(initialPage)
+  const [studioPrompt, setStudioPrompt] = useState('') // carried over from a search with no results
   const [authMode, setAuthMode] = useState(null) // 'login' | 'signup' | null
   const [checkoutCancelled, setCheckoutCancelled] = useState(
     () => new URLSearchParams(window.location.search).get('checkout') === 'cancelled',
@@ -109,9 +110,16 @@ export default function App() {
   const user = isLoggedIn ? { name: userName, isAdmin } : null
   const showDashboard = page === 'dashboard' && isAdmin
 
-  let content = <AssetsLibraryPage isAdmin={isLoggedIn && isAdmin} />
+  const openStudio = (prompt = '') => {
+    setStudioPrompt(prompt)
+    navigate('studio')
+  }
+  // Header / footer links open AI Studio with an empty prompt.
+  const navigateFresh = (next) => (next === 'studio' ? openStudio('') : navigate(next))
+
+  let content = <AssetsLibraryPage isAdmin={isLoggedIn && isAdmin} onOpenStudio={openStudio} />
   if (page === 'success') content = <SuccessPage onBack={() => navigate('library')} />
-  else if (page === 'studio') content = <AIGeneratorPage onBack={() => navigate('library')} />
+  else if (page === 'studio') content = <AIGeneratorPage initialPrompt={studioPrompt} onBack={() => navigate('library')} />
   else if (showDashboard) content = <AdminDashboard onBack={() => navigate('library')} live={isPresentationMode} />
   else if (page === 'about') content = <AboutPage onBack={() => navigate('library')} />
   else if (page === 'terms') content = <TermsPage onBack={() => navigate('library')} />
@@ -122,7 +130,7 @@ export default function App() {
       <SiteHeader
         user={user}
         page={showDashboard ? 'dashboard' : page === 'studio' ? 'studio' : 'library'}
-        onNavigate={navigate}
+        onNavigate={navigateFresh}
         onOpenAuth={setAuthMode}
         onLogout={handleLogout}
         isPresentationMode={isPresentationMode}
@@ -148,7 +156,7 @@ export default function App() {
       {/* flex-1 keeps the footer at the bottom of the window on short pages. */}
       <div className="flex flex-1 flex-col">{content}</div>
 
-      <Footer onNavigate={navigate} />
+      <Footer onNavigate={navigateFresh} />
 
       {authMode && (
         <AuthModal mode={authMode} onModeChange={setAuthMode} onClose={closeAuth} onLogin={handleLogin} />

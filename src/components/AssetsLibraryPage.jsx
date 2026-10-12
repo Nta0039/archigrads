@@ -200,32 +200,32 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
     <>
       {/* Hero & search: full-bleed photo (public/background1.png). The text sits
           in the bright sky; the height follows the width (clamped) so the pavilion,
-          terrace and mountains always sit below the search bar. The photo is light, so the hero
-          keeps light-theme colours (black text, white search) in dark mode too. */}
-      <section className="relative min-h-[clamp(660px,50vw,800px)] overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] bg-cover bg-center bg-no-repeat dark:border-neutral-800">
-        {/* Soft white wash over the sky only, so the text stays crisp without
-            dimming the building. */}
+          terrace and mountains always sit below the search bar. Dark mode swaps in the
+          night render of the same view (public/background1_night.jpg) with light text. */}
+      <section className="relative min-h-[clamp(660px,50vw,800px)] overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] bg-cover bg-center bg-no-repeat dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
+        {/* Soft wash over the sky only (white by day, deep blue-black by night), so
+            the text stays crisp without dimming the building. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-3/5 bg-gradient-to-b from-white/70 via-white/35 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-3/5 bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-neutral-950/55 dark:via-neutral-950/20"
         />
         <div className="relative mx-auto max-w-7xl px-6 pb-12 pt-10 text-center sm:pt-12 lg:px-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-700">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-700 dark:text-neutral-300">
             Vector Assets Library
           </p>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-6xl">
+          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-6xl dark:text-white">
             Premium Architectural Assets
           </h1>
-          <p className="mx-auto mt-5 max-w-xl font-medium leading-relaxed text-neutral-800">
+          <p className="mx-auto mt-5 max-w-xl font-medium leading-relaxed text-neutral-800 dark:text-neutral-200">
             Free 2D cutouts, CAD blocks and Revit families, plus community assets made in AI Studio.
           </p>
 
           <form
             role="search"
             onSubmit={(event) => event.preventDefault()}
-            className="mx-auto mt-10 flex max-w-3xl items-stretch overflow-hidden border-2 border-neutral-950 bg-white text-neutral-900 shadow-xl shadow-neutral-950/10"
+            className="mx-auto mt-10 flex max-w-3xl items-stretch overflow-hidden border-2 border-neutral-950 bg-white text-neutral-900 shadow-xl shadow-neutral-950/10 dark:border-white dark:bg-neutral-950/85 dark:text-neutral-100 dark:shadow-black/40"
           >
-            <label htmlFor="asset-search" className="flex items-center pl-5 text-neutral-500">
+            <label htmlFor="asset-search" className="flex items-center pl-5 text-neutral-500 dark:text-neutral-400">
               <Search className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               <span className="sr-only">Search assets</span>
             </label>
@@ -235,21 +235,21 @@ export default function AssetsLibraryPage({ isAdmin = false }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search people, trees, furniture, textures…"
-              className="min-w-0 flex-1 bg-transparent px-4 py-4 text-base outline-none placeholder:text-neutral-500 [&::-webkit-search-cancel-button]:hidden"
+              className="min-w-0 flex-1 bg-transparent px-4 py-4 text-base outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400 [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="flex items-center px-3 text-neutral-500 transition-colors hover:text-neutral-950"
+                className="flex items-center px-3 text-neutral-500 transition-colors hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white"
               >
                 <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </button>
             )}
             <button
               type="submit"
-              className="bg-neutral-950 px-6 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-neutral-700 sm:px-8"
+              className="bg-neutral-950 px-6 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-neutral-700 sm:px-8 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-300"
             >
               Search
             </button>

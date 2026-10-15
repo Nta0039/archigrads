@@ -11,6 +11,11 @@ const STORY_PICS = [
   { src: '/story%20pic5.png', width: 1536, height: 1024, alt: 'Architecture asset packs available as a one-time purchase' },
   { src: '/story%20pic6.png', width: 1536, height: 1024, alt: 'Assets from different sources brought together in one ArchiGrads library' },
   { src: '/story%20pic7.png', width: 1672, height: 941, alt: 'Our goal: quality-checked assets, organised categories, better previews and curated collections' },
+  // Survey slides (indices 7-10 = pic8-pic11); shown in reading order pic11, pic10, pic9, pic8.
+  { src: '/story%20pic8.jpg', width: 1716, height: 910, alt: 'Additional user feedback: more content, easier to use, and flexible access with affordable student pricing' },
+  { src: '/story%20pic9.jpg', width: 1705, height: 907, alt: 'What the survey tells us: 91.7% core demand for 3D families, 83.3% have paid for assets before, 100% future interest' },
+  { src: '/story%20pic10.jpg', width: 1713, height: 913, alt: 'Which assets do they use? Bar chart of 12 responses: 3D families are the most used, by 11 of 12 respondents' },
+  { src: '/story%20pic11.jpg', width: 1707, height: 911, alt: 'Who answered the survey? Pie chart: 10 of 12 respondents (83.3%) are architecture students' },
 ]
 
 // Text, images and the video all sit in one column (InfoPage, max-w-4xl) and
@@ -170,6 +175,12 @@ export default function AboutPage({ onBack }) {
       <StoryPic pic={STORY_PICS[4]} />
       {/* Text goes here */}
       <StoryPic pic={STORY_PICS[5]} />
+      {/* Text goes here */}
+      {/* What students told us: the survey, from who answered to what they asked for. */}
+      <StoryPic pic={STORY_PICS[10]} />
+      <StoryPic pic={STORY_PICS[9]} />
+      <StoryPic pic={STORY_PICS[8]} />
+      <StoryPic pic={STORY_PICS[7]} />
       {/* Text goes here */}
       <StoryPic pic={STORY_PICS[6]} />
     </InfoPage>

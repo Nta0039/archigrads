@@ -1,9 +1,13 @@
 import { ArrowLeft } from 'lucide-react'
 
-/** Shared layout for the About, Terms and Privacy pages: one centred column of text. */
-export default function InfoPage({ eyebrow, title, updated, onBack, children }) {
+/**
+ * Shared layout for the About, Terms and Privacy pages: one centred column of
+ * text. `width` sets the column's max width (the Brand Story uses a wider one
+ * so its text and media share one column).
+ */
+export default function InfoPage({ eyebrow, title, updated, onBack, width = 'max-w-3xl', children }) {
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-24">
+    <main className={`mx-auto w-full ${width} flex-1 px-6 py-24`}>
       <button
         type="button"
         onClick={onBack}

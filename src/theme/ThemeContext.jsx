@@ -4,14 +4,38 @@ import { flushSync } from 'react-dom'
 /**
  * Light / dark theme.
  *
- * Follows the operating system setting until the visitor presses the toggle;
- * from then on their choice is remembered in localStorage. The `dark` class on
+ * Follows the visitor's clock until they press the toggle: dark from 18:00 to
+ * 06:00 local time, light otherwise (switching on the hour while the page is
+ * open). Once they press the toggle, their choice is remembered in localStorage. The `dark` class on
  * <html> drives Tailwind's `dark:` variants (see index.css). index.html applies
  * the same logic before React loads so the page never flashes the wrong theme.
  */
 const STORAGE_KEY = 'archigrads-theme'
 const FADE_MS = 300
-const systemQuery = window.matchMedia('(prefers-color-scheme: dark)')
+const DARK_FROM_HOUR = 18
+const LIGHT_FROM_HOUR = 6
+
+/** 'dark' from 18:00 to 06:00 on the visitor's own clock, 'light' otherwise. */
+function clockTheme(date = new Date()) {
+  const hour = date.getHours()
+  return hour >= DARK_FROM_HOUR || hour < LIGHT_FROM_HOUR ? 'dark' : 'light'
+}
+
+/** Milliseconds until the next 06:00 or 18:00 local time. */
+function msUntilNextSwitch(date = new Date()) {
+  const next = new Date(date)
+  next.setMinutes(0, 0, 0)
+  const hour = date.getHours()
+  if (hour < LIGHT_FROM_HOUR) {
+    next.setHours(LIGHT_FROM_HOUR)
+  } else if (hour < DARK_FROM_HOUR) {
+    next.setHours(DARK_FROM_HOUR)
+  } else {
+    next.setDate(next.getDate() + 1)
+    next.setHours(LIGHT_FROM_HOUR)
+  }
+  return next - date
+}
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 
 function readStoredTheme() {
@@ -36,7 +60,7 @@ function applyThemeClass(theme) {
  * transition (see index.css), instead of a mix of fading and snapping elements.
  */
 function withThemeFade(update) {
-  // Nothing to animate in a background tab (e.g. the OS switches theme at sunset).
+  // Nothing to animate in a background tab (e.g. the clock reaches 18:00 unseen).
   if (reducedMotionQuery.matches || document.visibilityState === 'hidden') {
     update()
     return
@@ -59,19 +83,36 @@ const ThemeContext = createContext(null)
 
 export function ThemeProvider({ children }) {
   const [storedTheme, setStoredTheme] = useState(readStoredTheme)
-  const [systemTheme, setSystemTheme] = useState(systemQuery.matches ? 'dark' : 'light')
-  const theme = storedTheme ?? systemTheme
+  const [timeTheme, setTimeTheme] = useState(clockTheme)
+  const theme = storedTheme ?? timeTheme
 
-  // Track OS changes; only visible while the visitor has not chosen manually.
+  // Switch at 06:00 / 18:00 while the page is open; also re-check when the tab
+  // comes back (timers can fire late after sleep). Only visible while the
+  // visitor has not chosen a theme with the toggle.
   useEffect(() => {
-    const onChange = (event) => {
-      const next = event.matches ? 'dark' : 'light'
-      withThemeFade(() => {
-        flushSync(() => setSystemTheme(next))
-      })
+    let timer
+    const sync = () => {
+      const next = clockTheme()
+      const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+      // Fade only when the page actually changes theme (not if the toggle has fixed it).
+      if (next !== current && !readStoredTheme()) withThemeFade(() => flushSync(() => setTimeTheme(next)))
+      else setTimeTheme(next)
     }
-    systemQuery.addEventListener('change', onChange)
-    return () => systemQuery.removeEventListener('change', onChange)
+    const schedule = () => {
+      timer = setTimeout(() => {
+        sync()
+        schedule()
+      }, msUntilNextSwitch() + 1000)
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') sync()
+    }
+    schedule()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   // Layout effect so the class lands in the same frame as the React commit.

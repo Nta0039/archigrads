@@ -1,7 +1,8 @@
-/* LoadingScreen: the logo's two windows become a pair of eyes. One 2.8 s
-   timeline: look left, blink, look right, back to centre, blink. The outer
-   element moves (looking), the inner one squashes (blinking), so the two
-   motions combine without fighting over one transform. */
+/* LoadingScreen: the logo's two windows (SVG paths) become a pair of eyes.
+   One 2.8 s timeline: look left, blink, look right, back to centre, blink.
+   The <g> moves (looking) and its <path> squashes (blinking), so the two
+   motions combine without fighting over one transform. transform-box:
+   fill-box makes percentages and the origin refer to each eye's own outline. */
 
 @keyframes loader-look {
   0%, 10% { transform: translateX(0); }
@@ -16,17 +17,19 @@
 }
 
 .loader-eye {
+  transform-box: fill-box;
   animation: loader-look 2.8s ease-in-out infinite;
 }
 
-.loader-eye > span {
-  animation: loader-blink 2.8s ease-in-out infinite;
+.loader-eye > path {
+  transform-box: fill-box;
   transform-origin: 50% 50%;
+  animation: loader-blink 2.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .loader-eye,
-  .loader-eye > span {
+  .loader-eye > path {
     animation: none;
   }
 }

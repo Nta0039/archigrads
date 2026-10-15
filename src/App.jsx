@@ -7,6 +7,7 @@ import AdminDashboard from './components/AdminDashboard'
 import SuccessPage from './components/SuccessPage'
 import AIGeneratorPage from './components/AIGeneratorPage'
 import CookieBanner from './components/CookieBanner'
+import LoadingScreen from './components/LoadingScreen'
 import Footer from './components/Footer'
 import AboutPage from './components/AboutPage'
 import TermsPage from './components/TermsPage'
@@ -164,6 +165,9 @@ export default function App() {
 
       {/* On every page until the visitor accepts or declines. */}
       <CookieBanner />
+
+      {/* Animated logo splash on the first load of the site; fades out by itself. */}
+      <LoadingScreen />
     </div>
   )
 }

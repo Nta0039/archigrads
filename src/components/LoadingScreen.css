@@ -1,0 +1,43 @@
+/* LoadingScreen: the logo's two windows become a pair of eyes. One 2.8 s
+   timeline: look left, blink, look right, back to centre, blink. The outer
+   element moves (looking), the inner one squashes (blinking), so the two
+   motions combine without fighting over one transform. */
+
+@keyframes loader-look {
+  0%, 10% { transform: translateX(0); }
+  22%, 40% { transform: translateX(-34%); }
+  54%, 70% { transform: translateX(34%); }
+  82%, 100% { transform: translateX(0); }
+}
+
+@keyframes loader-blink {
+  0%, 30%, 38%, 88%, 96%, 100% { transform: scaleY(1); }
+  34%, 92% { transform: scaleY(0.1); }
+}
+
+@keyframes loader-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.loader-eye {
+  animation: loader-look 2.8s ease-in-out infinite;
+}
+
+.loader-eye > span {
+  animation: loader-blink 2.8s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+.loader-progress {
+  animation: loader-progress var(--loader-min, 2.8s) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transform-origin: 0 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-eye,
+  .loader-eye > span,
+  .loader-progress {
+    animation: none;
+  }
+}

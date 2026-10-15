@@ -129,7 +129,7 @@ export default function App() {
     <div className="flex min-h-screen flex-col text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white dark:text-neutral-100 dark:selection:bg-neutral-100 dark:selection:text-neutral-900">
       <SiteHeader
         user={user}
-        page={showDashboard ? 'dashboard' : page === 'studio' ? 'studio' : 'library'}
+        page={showDashboard ? 'dashboard' : page === 'studio' || page === 'about' ? page : 'library'}
         onNavigate={navigateFresh}
         onOpenAuth={setAuthMode}
         onLogout={handleLogout}

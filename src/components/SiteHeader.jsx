@@ -75,6 +75,26 @@ export default function SiteHeader({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Second way into the About page (the footer's "About us"). A real href so it can be
+              opened in a new tab; a plain click navigates inside the app. Shown from md for
+              visitors and from xl for admins (whose header holds more controls); below
+              that the header is full and the footer link remains. */}
+          <a
+            href="/about"
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+              event.preventDefault()
+              onNavigate('about')
+            }}
+            aria-current={page === 'about' ? 'page' : undefined}
+            className={`mr-2 hidden whitespace-nowrap rounded-none border px-3 py-[9px] text-xs font-semibold uppercase leading-4 tracking-[0.18em] transition-colors ${user?.isAdmin ? 'xl:inline-block' : 'md:inline-block'} ${
+              page === 'about'
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-900'
+            }`}
+          >
+            Brand Story
+          </a>
           {user ? (
             <>
               {user.isAdmin && (

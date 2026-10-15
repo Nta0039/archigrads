@@ -141,6 +141,18 @@ body {
   background-repeat: no-repeat;
 }
 
+/* The hero's looping video: exactly the photo's box above (height --photo-h,
+   16:9, centred, bottom 11% pushed below the edge), so it lines up with the
+   still photo pixel for pixel and keeps the same framing. */
+.hero-video {
+  height: var(--photo-h);
+  width: calc(var(--photo-h) * 16 / 9);
+  max-width: none;
+  left: 50%;
+  bottom: calc(-0.11 * var(--photo-h));
+  transform: translateX(-50%);
+}
+
 /* Bundle cards: two hard-edged sheets offset behind the card, like a stack of
    drawings. Each sheet is a filled offset shadow (spread -1px) over a 1px
    outline shadow, so the layers read as outlined paper, not a blur. */

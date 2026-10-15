@@ -31,6 +31,11 @@ import { useSaleEpoch } from '../lib/useFlashSale'
 import FlashSaleCountdown from './FlashSaleCountdown'
 import { useSavedAssets } from '../lib/savedAssets'
 import AssetPreviewModal from './AssetPreviewModal'
+import { useTheme } from '../theme/ThemeContext'
+
+// Hero background loops: animated versions of the day and night photos
+// (public/background1.png, public/background1_night.jpg), same view and framing.
+const HERO_VIDEOS = { light: '/background2.mp4', dark: '/background-night2.mp4' }
 
 const TYPE_ICONS = {
   '2D Collections': Images,
@@ -202,6 +207,9 @@ export default function AssetsLibraryPage({ isAdmin = false, onOpenStudio }) {
     // saleEpoch is a recompute trigger, not read directly.
   }, [catalogue.assets, query, priceType, activeCategory, format, saleEpoch])
 
+  const { theme } = useTheme()
+  const heroVideo = HERO_VIDEOS[theme] ?? HERO_VIDEOS.light
+
   const hasFilters = query.trim() !== '' || priceType !== null || category !== 'All' || format !== null
   const clearFilters = () => {
     setQuery('')
@@ -212,19 +220,33 @@ export default function AssetsLibraryPage({ isAdmin = false, onOpenStudio }) {
 
   return (
     <>
-      {/* Hero & search: full-bleed photo (public/background1.png). The text sits
-          in the sky; sizing lives in .hero-photo (index.css): the height follows the window
-          so the filters and first cards show above the fold, and the pavilion,
-          terrace and mountains always sit below the search bar. Dark mode swaps in the
-          night render of the same view (public/background1_night.jpg) with light text. */}
+      {/* Hero & search: full-bleed looping video of the pavilion (day, or night in
+          dark mode), over the still photo of the same view (public/background1.png,
+          public/background1_night.jpg), which shows while the video loads and for
+          visitors who prefer reduced motion. The text sits in the sky; sizing lives
+          in .hero-photo (index.css): the height follows the window so the filters and
+          first cards show above the fold, and the pavilion, terrace and mountains
+          always sit below the search bar. */}
       <section className="hero-photo relative overflow-hidden border-b border-neutral-200 bg-white bg-[url('/background1.png')] dark:border-neutral-800 dark:bg-neutral-950 dark:bg-[url('/background1_night.jpg')]">
+        {/* key: remount on theme change, so the new loop loads and plays at once. */}
+        <video
+          key={heroVideo}
+          src={heroVideo}
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-hidden
+          tabIndex={-1}
+          className="hero-video pointer-events-none absolute z-0 object-cover motion-reduce:hidden"
+        />
         {/* Soft wash over the sky only (white by day, deep blue-black by night), so
             the text stays crisp without dimming the building. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-neutral-950/55 dark:via-neutral-950/20"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[45%] bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-neutral-950/55 dark:via-neutral-950/20"
         />
-        <div className="relative mx-auto max-w-7xl px-6 pb-10 pt-8 text-center sm:pt-10 lg:px-8">
+        <div className="relative z-10 mx-auto max-w-7xl px-6 pb-10 pt-8 text-center sm:pt-10 lg:px-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-700 dark:text-neutral-300">
             Spend Less. Choose More. Design Better.
           </p>

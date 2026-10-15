@@ -16,16 +16,22 @@ const STORY_PICS = [
 // same width (the container's) with their own aspect ratios.
 const MEDIA = 'h-auto w-full rounded-none object-cover'
 
-function StoryPic({ pic, eager = false }) {
+// A story image placed inside the (narrower, max-w-3xl) text column: it is
+// widened to exactly the media column's width (max-w-4xl minus its px-6
+// padding, measured on the page with cqw) and centred on the same axis.
+const MEDIA_IN_TEXT =
+  'relative left-1/2 my-10 h-auto w-[calc(min(896px,100cqw)-48px)] max-w-none -translate-x-1/2 rounded-none object-cover'
+
+function StoryPic({ pic, className = MEDIA }) {
   return (
     <img
       src={pic.src}
       alt={pic.alt}
       width={pic.width}
       height={pic.height}
-      loading={eager ? 'eager' : 'lazy'}
+      loading="lazy"
       decoding="async"
-      className={MEDIA}
+      className={className}
     />
   )
 }
@@ -33,7 +39,8 @@ function StoryPic({ pic, eager = false }) {
 /** /about: the brand story (text supplied by the ArchiGrads team). */
 export default function AboutPage({ onBack }) {
   return (
-    <>
+    // @container: lets the in-text image measure the page width (cqw units).
+    <div className="@container flex flex-1 flex-col">
       <InfoPage eyebrow="About us" title="Our Brand Story – ArchiGrads" onBack={onBack}>
         <p>
           As architecture students, we know how stressful deadlines can be. Between designing, modelling, rendering, and
@@ -48,6 +55,7 @@ export default function AboutPage({ onBack }) {
           We believe that <strong>good-quality architectural assets shouldn't have to be expensive</strong>, especially
           for students who are already managing university expenses.
         </p>
+        <StoryPic pic={STORY_PICS[0]} className={MEDIA_IN_TEXT} />
         <p>
           That's why we created <strong>ArchiGrads</strong>.
         </p>
@@ -79,8 +87,6 @@ export default function AboutPage({ onBack }) {
       {/* Story media: one centred column, every item the same width. Text will be
           added between the items (see the placeholder comments). */}
       <section aria-label="Our story in pictures" className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-6 pb-24">
-        <StoryPic pic={STORY_PICS[0]} eager />
-        {/* Text goes here */}
         <StoryPic pic={STORY_PICS[1]} />
         {/* Text goes here */}
         <StoryPic pic={STORY_PICS[2]} />
@@ -106,6 +112,6 @@ export default function AboutPage({ onBack }) {
         {/* Text goes here */}
         <StoryPic pic={STORY_PICS[6]} />
       </section>
-    </>
+    </div>
   )
 }

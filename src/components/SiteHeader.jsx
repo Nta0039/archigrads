@@ -18,6 +18,8 @@ export default function SiteHeader({
   isPresentationMode,
   onTogglePresentation,
 }) {
+  const brandStoryVisibility = user?.isAdmin ? 'hidden xl:block' : 'hidden md:block'
+
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/85 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/85">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6 lg:px-8">
@@ -75,10 +77,10 @@ export default function SiteHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Second way into the About page (the footer's "About us"). A real href so it can be
-              opened in a new tab; a plain click navigates inside the app. Shown from md for
-              visitors and from xl for admins (whose header holds more controls); below
-              that the header is full and the footer link remains. */}
+          {/* Second way into the About page (the footer's "About us"): plain text styled exactly like
+              Login, then a hairline divider. A real href so it can be opened in a new tab; a plain
+              click navigates inside the app. Shown from md for visitors and from xl for admins
+              (whose header holds more controls); below that the footer link remains. */}
           <a
             href="/about"
             onClick={(event) => {
@@ -87,14 +89,11 @@ export default function SiteHeader({
               onNavigate('about')
             }}
             aria-current={page === 'about' ? 'page' : undefined}
-            className={`mr-2 hidden whitespace-nowrap rounded-none border px-3 py-[9px] text-xs font-semibold uppercase leading-4 tracking-[0.18em] transition-colors ${user?.isAdmin ? 'xl:inline-block' : 'md:inline-block'} ${
-              page === 'about'
-                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-900'
-            }`}
+            className={`${quietButton} ${brandStoryVisibility} ${page === 'about' ? '!text-neutral-900 dark:!text-neutral-100' : ''}`}
           >
             Brand Story
           </a>
+          <span aria-hidden className={`h-4 w-px bg-neutral-300 dark:bg-neutral-700 ${brandStoryVisibility}`} />
           {user ? (
             <>
               {user.isAdmin && (

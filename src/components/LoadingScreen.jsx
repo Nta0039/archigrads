@@ -77,10 +77,12 @@ export default function LoadingScreen() {
       }`}
       style={{ ...PAGE_SURFACE, transitionDuration: `${FADE_MS}ms` }}
     >
+      {/* Light mode: the brand navy, #042c4f (the average colour of public/logo-mark.png);
+          dark mode: off-white. The paths use fill="currentColor". */}
       <svg
         viewBox="0 0 835 512"
         aria-hidden
-        className="w-44 text-neutral-900 sm:w-52 dark:text-neutral-50"
+        className="w-44 text-[#042c4f] sm:w-52 dark:text-neutral-50"
       >
         <path d={CAP_PATH} fill="currentColor" />
         <path d={BODY_PATH} fill="currentColor" />

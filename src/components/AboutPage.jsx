@@ -174,7 +174,14 @@ export default function AboutPage({ onBack }) {
       <StoryVideo />
       {/* Text goes here */}
       <StoryPic pic={STORY_PICS[4]} />
-      {/* Text goes here */}
+      <p>
+        ArchiGrads operates through a <strong>one-time purchase model</strong>, where customers pay for individual
+        architectural assets or asset bundles without needing a subscription.
+      </p>
+      <p>
+        We aim to provide high-quality resources at affordable prices, particularly for architecture students. Selected
+        products will also have promotional discounts to encourage more purchases.
+      </p>
       <StoryPic pic={STORY_PICS[5]} />
       <p>
         One of our strategies is to source affordable architectural resources from online marketplaces such as Taobao,

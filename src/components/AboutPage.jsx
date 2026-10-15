@@ -5,9 +5,13 @@ export default function AboutPage({ onBack }) {
   return (
     <InfoPage eyebrow="About us" title="Our Brand Story – ArchiGrads" onBack={onBack}>
       <p>
-        As architecture students, we know how expensive it can be to find high-quality architectural resources. Whether
-        it's PNG trees, people, CAD blocks, Revit families or textures, students often have to spend a lot of money or
-        search through different websites to find what they need.
+        As architecture students, we know how stressful deadlines can be. Between designing, modelling, rendering, and
+        preparing presentations, finding good architectural resources shouldn&apos;t take up so much of our time or money.
+      </p>
+      <p>
+        Yet it often does. Whether it&apos;s PNG trees, people, CAD blocks, Revit families or textures, high-quality
+        resources can be expensive, and students often end up spending a lot of money or searching through different
+        websites to find what they need.
       </p>
       <p>
         We believe that <strong>good-quality architectural assets shouldn't have to be expensive</strong>, especially

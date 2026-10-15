@@ -19,10 +19,10 @@ const PATCH = { left: 27.4, top: 52.5, width: 14.2, height: 19.5 }
 const pct = (box) => ({ left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%` })
 
 /**
- * Splash shown on the first load of the site: the ArchiGrads cap with its two
- * windows turned into eyes that look around and blink. Stays at least one full
- * cycle (even if the page is ready sooner) and until the page has finished
- * loading, then fades out to reveal the site.
+ * Splash shown on the first load of the site: nothing but the ArchiGrads cap,
+ * centred, with its two windows turned into eyes that look around and blink.
+ * Stays at least one full cycle (even if the page is ready sooner) and until
+ * the page has finished loading, then fades out to reveal the site.
  */
 export default function LoadingScreen() {
   const [phase, setPhase] = useState('visible') // 'visible' | 'fading' | 'gone'
@@ -62,10 +62,10 @@ export default function LoadingScreen() {
     <div
       role="status"
       aria-label="Loading ArchiGrads"
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-neutral-50 transition-opacity ease-out dark:bg-neutral-950 ${
+      className={`fixed inset-0 z-[100] flex min-h-screen items-center justify-center bg-neutral-50 transition-opacity ease-out dark:bg-neutral-950 ${
         phase === 'fading' ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
-      style={{ transitionDuration: `${FADE_MS}ms`, '--loader-min': `${MIN_VISIBLE_MS}ms` }}
+      style={{ transitionDuration: `${FADE_MS}ms` }}
     >
       <div className="relative w-44 sm:w-52">
         <img
@@ -85,14 +85,6 @@ export default function LoadingScreen() {
           </span>
         ))}
       </div>
-
-      <p className="mt-8 text-xl font-bold tracking-tight text-neutral-950 dark:text-white">ArchiGrads</p>
-      <div aria-hidden className="mt-4 h-px w-40 bg-neutral-200 dark:bg-neutral-800">
-        <div className="loader-progress h-full w-full bg-neutral-950 dark:bg-white" />
-      </div>
-      <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.3em] text-neutral-400 dark:text-neutral-500">
-        Spend Less. Choose More. Design Better.
-      </p>
     </div>
   )
 }

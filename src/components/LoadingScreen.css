@@ -15,11 +15,6 @@
   34%, 92% { transform: scaleY(0.1); }
 }
 
-@keyframes loader-progress {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
 .loader-eye {
   animation: loader-look 2.8s ease-in-out infinite;
 }
@@ -29,15 +24,9 @@
   transform-origin: 50% 50%;
 }
 
-.loader-progress {
-  animation: loader-progress var(--loader-min, 2.8s) cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  transform-origin: 0 50%;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .loader-eye,
-  .loader-eye > span,
-  .loader-progress {
+  .loader-eye > span {
     animation: none;
   }
 }

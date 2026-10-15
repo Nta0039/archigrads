@@ -195,14 +195,14 @@ export default function AboutPage({ onBack }) {
         By combining low sourcing costs, efficient asset organisation and occasional promotional discounts, we aim to
         develop a sustainable business that benefits both ArchiGrads and its customers.
       </p>
+      <StoryPic pic={STORY_PICS[6]} />
+      {/* Text goes here */}
       {/* What students told us: the survey, from who answered to what they asked for. */}
       <StoryPic pic={STORY_PICS[10]} />
       <StoryPic pic={STORY_PICS[9]} />
       <StoryPic pic={STORY_PICS[8]} />
       <StoryPic pic={STORY_PICS[11]} />
       <StoryPic pic={STORY_PICS[7]} />
-      {/* Text goes here */}
-      <StoryPic pic={STORY_PICS[6]} />
     </InfoPage>
   )
 }

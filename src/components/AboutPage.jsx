@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import InfoPage from './InfoPage'
 
 // Story images in public/, in page order (file names contain spaces, so the
@@ -33,6 +34,82 @@ function StoryPic({ pic, className = MEDIA }) {
       decoding="async"
       className={className}
     />
+  )
+}
+
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null
+}
+
+/**
+ * The story video: silent, looping and control-free on the page, with an
+ * "Introduction" label and a [ FULLSCREEN ] button. Clicking the video or the
+ * button opens it fullscreen with sound and native controls (so it can be
+ * paused); leaving fullscreen restores the clean, muted loop.
+ */
+function StoryVideo() {
+  const videoRef = useRef(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const video = videoRef.current
+    const sync = () => {
+      const active = fullscreenElement() === video || Boolean(video?.webkitDisplayingFullscreen)
+      setIsFullscreen(active)
+      if (video && !active) video.muted = true
+    }
+    document.addEventListener('fullscreenchange', sync)
+    document.addEventListener('webkitfullscreenchange', sync)
+    // iOS Safari fullscreens the <video> itself and fires these on the element.
+    video?.addEventListener('webkitbeginfullscreen', sync)
+    video?.addEventListener('webkitendfullscreen', sync)
+    return () => {
+      document.removeEventListener('fullscreenchange', sync)
+      document.removeEventListener('webkitfullscreenchange', sync)
+      video?.removeEventListener('webkitbeginfullscreen', sync)
+      video?.removeEventListener('webkitendfullscreen', sync)
+    }
+  }, [])
+
+  const openFullscreen = () => {
+    const video = videoRef.current
+    if (!video || fullscreenElement()) return
+    video.muted = false
+    video.play().catch(() => {})
+    if (video.requestFullscreen) video.requestFullscreen().catch(() => {})
+    else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen()
+    else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen() // iOS Safari
+  }
+
+  return (
+    <div className="video-container group relative flex w-full">
+      <video
+        ref={videoRef}
+        src="/story%20video.mp4"
+        width={1920}
+        height={1080}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        controls={isFullscreen}
+        onClick={isFullscreen ? undefined : openFullscreen}
+        aria-label="ArchiGrads story video"
+        className={`${MEDIA} ${isFullscreen ? '' : 'cursor-pointer'}`}
+      />
+      <span className="pointer-events-none absolute left-4 top-4 z-10 border border-transparent bg-neutral-900 px-3 py-1 text-xs font-bold uppercase tracking-widest text-neutral-50 md:text-sm dark:bg-neutral-50 dark:text-neutral-900">
+        Introduction
+      </span>
+      <button
+        type="button"
+        onClick={openFullscreen}
+        aria-label="Play the story video fullscreen"
+        className="absolute bottom-4 right-4 z-10 border border-neutral-50 bg-neutral-900/80 px-3 py-1 font-mono text-xs font-bold uppercase tracking-widest text-neutral-50 transition-colors hover:bg-neutral-50 hover:text-neutral-900 focus-visible:bg-neutral-50 focus-visible:text-neutral-900 focus-visible:outline-none md:text-sm"
+      >
+        [ Fullscreen ]
+      </button>
+    </div>
   )
 }
 
@@ -93,18 +170,7 @@ export default function AboutPage({ onBack }) {
         {/* Text goes here */}
         <StoryPic pic={STORY_PICS[3]} />
         {/* Text goes here */}
-        <video
-          src="/story%20video.mp4"
-          width={1920}
-          height={1080}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          aria-label="ArchiGrads story video"
-          className={MEDIA}
-        />
+        <StoryVideo />
         {/* Text goes here */}
         <StoryPic pic={STORY_PICS[4]} />
         {/* Text goes here */}
